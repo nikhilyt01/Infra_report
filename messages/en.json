@@ -1,0 +1,60 @@
+{
+  "Home": {
+    "title": "Building Better India Together",
+    "subtitle": "Transform India's Infrastructure",
+    "description": "Report infrastructure issues, track progress, and build a better community with AI-powered solutions",
+    "selectLanguage": "Select Language",
+    "getStarted": "Get Started",
+    "signIn": "Sign In",
+    "learnMore": "Learn More",
+    "cta": "Ready to Make a Difference?",
+    "stats": {
+      "reports": "Reports Submitted",
+      "resolved": "Issues Resolved",
+      "cities": "Cities Covered",
+      "support": "24/7 Support"
+    },
+    "features": {
+      "report": {
+        "title": "Report Issues",
+        "description": "Quickly report infrastructure problems with photos and location"
+      },
+      "track": {
+        "title": "Track Progress",
+        "description": "Monitor the status and resolution of your reports in real-time"
+      },
+      "ai": {
+        "title": "AI Detection",
+        "description": "Advanced AI technology to identify and classify infrastructure issues"
+      },
+      "map": {
+        "title": "Heat Maps",
+        "description": "Visualize issue density and resolution rates across your city"
+      }
+    },
+    "howItWorks": {
+      "title": "How It Works",
+      "step1": {
+        "title": "Report Issue",
+        "description": "Take a photo and describe the problem"
+      },
+      "step2": {
+        "title": "Community Support",
+        "description": "Others can upvote and support your report"
+      },
+      "step3": {
+        "title": "Get Resolved",
+        "description": "City officials track and fix the issue"
+      }
+    },
+    "cta": "Start Reporting Today"
+  },
+  "Nav": {
+    "home": "Home",
+    "report": "Report",
+    "map": "Heat Map",
+    "ar": "AR View",
+    "dashboard": "Dashboard",
+    "signIn": "Sign In"
+  }
+}
