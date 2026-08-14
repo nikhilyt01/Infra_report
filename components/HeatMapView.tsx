@@ -1011,127 +1011,115 @@ export default function HeatMapView({ initialViewState }: HeatMapViewProps) {
       )}
 
       {/* Left Control Panel */}
-      <div className="absolute top-4 left-4 bottom-4 w-72 z-20 pointer-events-none">
-        <div className="h-full overflow-y-auto overflow-x-hidden pointer-events-auto pr-2 space-y-3">
+      <div className="absolute top-3 left-3 bottom-3 w-64 sm:w-72 z-20 pointer-events-none">
+        <div className="h-full max-h-full overflow-y-auto overflow-x-hidden pointer-events-auto pr-1.5 space-y-2.5">
           {/* Map Style Selector */}
-          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3.5 shadow-lg">
-            <h3 className="text-white font-semibold mb-2.5 flex items-center gap-2 text-xs uppercase tracking-wider text-slate-400">
-              <MapIcon className="w-3.5 h-3.5 text-blue-400" />
-              Map Style
-            </h3>
-            <div className="grid grid-cols-2 gap-1.5">
+          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3 shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-white font-semibold flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-400">
+                <MapIcon className="w-3.5 h-3.5 text-blue-400" />
+                Map Style
+              </h3>
+              <button
+                onClick={resetView}
+                className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                title="Reset Map Center"
+              >
+                <RotateCcw className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-1">
               {(['satellite', 'street', 'dark', 'light', 'outdoors', 'navigation'] as MapStyleKey[]).map((style) => (
                 <button
                   key={style}
                   onClick={() => setMapStyle(style)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 justify-center ${
+                  className={`px-1.5 py-1.5 rounded-md text-[11px] font-medium transition-all flex flex-col items-center gap-1 justify-center ${
                     mapStyle === style
                       ? 'bg-blue-600 text-white shadow-xs font-semibold'
                       : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
                   }`}
                 >
-                  {style === 'satellite' && <Satellite className="w-3.5 h-3.5" />} 
-                  {style === 'street' && <Building className="w-3.5 h-3.5" />} 
-                  {style === 'dark' && <Moon className="w-3.5 h-3.5" />} 
-                  {style === 'light' && <Sun className="w-3.5 h-3.5" />} 
-                  {style === 'outdoors' && <Trees className="w-3.5 h-3.5" />} 
-                  {style === 'navigation' && <Compass className="w-3.5 h-3.5" />} 
-                  <span>{style.charAt(0).toUpperCase() + style.slice(1)}</span>
+                  {style === 'satellite' && <Satellite className="w-3 h-3" />} 
+                  {style === 'street' && <Building className="w-3 h-3" />} 
+                  {style === 'dark' && <Moon className="w-3 h-3" />} 
+                  {style === 'light' && <Sun className="w-3 h-3" />} 
+                  {style === 'outdoors' && <Trees className="w-3 h-3" />} 
+                  {style === 'navigation' && <Compass className="w-3 h-3" />} 
+                  <span className="capitalize text-[10px] leading-none">{style}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Layer Controls */}
-          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3.5 shadow-lg">
-            <h3 className="text-white font-semibold mb-2.5 flex items-center gap-2 text-xs uppercase tracking-wider text-slate-400">
-              <Layers className="w-3.5 h-3.5 text-blue-400" />
-              Layers
-            </h3>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showHeatmap}
-                  onChange={(e) => setShowHeatmap(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-700 bg-slate-800 accent-blue-600 cursor-pointer"
-                />
-                <span className="text-slate-200 text-xs font-medium">Density Heatmap</span>
-              </label>
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showMarkers}
-                  onChange={(e) => setShowMarkers(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-700 bg-slate-800 accent-blue-600 cursor-pointer"
-                />
-                <span className="text-slate-200 text-xs font-medium">Issue Markers</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Statistics */}
-          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3.5 shadow-lg">
-            <h3 className="text-white font-semibold mb-2.5 flex items-center gap-2 text-xs uppercase tracking-wider text-slate-400">
-              <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
-              Live Statistics
-            </h3>
-            <div className="space-y-1.5 text-xs">
-              <div className="flex justify-between items-center py-0.5">
-                <span className="text-slate-400">Total Reports</span>
-                <span className="text-slate-100 font-semibold">{reports.length}</span>
+          {/* Layer Controls & Live Statistics */}
+          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3 shadow-lg space-y-2.5">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <h3 className="text-white font-semibold flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-400">
+                <Layers className="w-3.5 h-3.5 text-blue-400" />
+                Active Layers
+              </h3>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={showHeatmap}
+                    onChange={(e) => setShowHeatmap(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 accent-blue-600 cursor-pointer"
+                  />
+                  <span>Heatmap</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={showMarkers}
+                    onChange={(e) => setShowMarkers(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 accent-blue-600 cursor-pointer"
+                  />
+                  <span>Markers</span>
+                </label>
               </div>
-              <div className="flex justify-between items-center py-0.5">
-                <span className="text-slate-400">Resolved</span>
-                <span className="text-emerald-400 font-semibold">
+            </div>
+
+            {/* Compact Statistics Grid */}
+            <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+              <div className="p-1.5 bg-slate-800/60 rounded-lg text-center">
+                <p className="text-[10px] text-slate-400">Total</p>
+                <p className="text-sm font-bold text-white leading-tight">{reports.length}</p>
+              </div>
+              <div className="p-1.5 bg-slate-800/60 rounded-lg text-center">
+                <p className="text-[10px] text-slate-400">Resolved</p>
+                <p className="text-sm font-bold text-emerald-400 leading-tight">
                   {reports.filter(r => r.status === 'resolved').length}
-                </span>
+                </p>
               </div>
-              <div className="flex justify-between items-center py-0.5">
-                <span className="text-slate-400">In Progress</span>
-                <span className="text-amber-400 font-semibold">
-                  {reports.filter(r => r.status === 'in_progress').length}
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-0.5">
-                <span className="text-slate-400">Urgent Priority</span>
-                <span className="text-rose-400 font-semibold">
-                  {reports.filter(r => r.priority === 'urgent').length}
-                </span>
+              <div className="p-1.5 bg-slate-800/60 rounded-lg text-center">
+                <p className="text-[10px] text-slate-400">Pending</p>
+                <p className="text-sm font-bold text-amber-400 leading-tight">
+                  {reports.filter(r => r.status === 'submitted' || r.status === 'under_review' || r.status === 'in_progress').length}
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3.5 shadow-lg">
-            <button
-              onClick={resetView}
-              className="w-full px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg font-medium text-xs transition-colors flex items-center justify-center gap-2 border border-slate-700"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Reset Center View
-            </button>
-          </div>
-
-          {/* Legend */}
-          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3.5 shadow-lg">
-            <h3 className="text-white font-semibold mb-2.5 flex items-center gap-2 text-xs uppercase tracking-wider text-slate-400">
+          {/* Status Legend (Compact 2x2 Grid) */}
+          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3 shadow-lg">
+            <h3 className="text-white font-semibold mb-2 flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-400">
               <Info className="w-3.5 h-3.5 text-blue-400" />
               Status Legend
             </h3>
-            <div className="space-y-1.5">
+            <div className="grid grid-cols-2 gap-2 text-xs">
               {[
                 { status: 'submitted', label: 'Submitted', color: '#3b82f6' },
                 { status: 'under_review', label: 'Under Review', color: '#eab308' },
                 { status: 'in_progress', label: 'In Progress', color: '#8b5cf6' },
                 { status: 'resolved', label: 'Resolved', color: '#22c55e' },
               ].map((item) => (
-                <div key={item.status} className="flex items-center gap-2">
+                <div key={item.status} className="flex items-center gap-1.5">
                   <div 
-                    className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
+                    className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs" 
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="text-slate-300 text-xs">{item.label}</span>
+                  <span className="text-slate-300 text-[11px] truncate font-medium">{item.label}</span>
                 </div>
               ))}
             </div>

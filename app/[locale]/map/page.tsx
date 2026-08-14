@@ -4,9 +4,9 @@ import Navbar from '@/components/Navbar';
 import HeatMapView from '@/components/HeatMapView';
 import AreaStatistics from '@/components/AreaStatistics';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
-import { MapPin } from 'lucide-react';
+import { MapPin, Navigation } from 'lucide-react';
 
 interface AreaStat {
   area: string;
@@ -17,6 +17,8 @@ interface AreaStat {
 
 export default function MapPage() {
   const router = useRouter();
+  const params = useParams();
+  const locale = (params.locale as string) || 'en';
   const [areaStats, setAreaStats] = useState<AreaStat[]>([]);
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export default function MapPage() {
           </div>
           
           <Button
-            onClick={() => router.push('/en/nearby-issues')}
+            onClick={() => router.push(`/${locale}/nearby-issues`)}
             className="w-full sm:w-auto flex items-center gap-2 px-4 py-2.5 shadow-xs font-medium"
           >
             <MapPin className="w-4 h-4" />
@@ -61,7 +63,7 @@ export default function MapPage() {
         </div>
 
         {/* Heat Map Canvas Container */}
-        <div className="w-full h-[640px] rounded-xl overflow-hidden border border-border/80 shadow-md relative">
+        <div className="w-full h-[680px] sm:h-[740px] md:h-[780px] rounded-2xl overflow-hidden border border-border/80 shadow-md relative bg-slate-900">
           <HeatMapView />
         </div>
 
