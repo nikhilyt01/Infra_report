@@ -1,21 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import Navbar from '@/components/Navbar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import IssueProgressBar from '@/components/IssueProgressBar';
-import ScreenReaderAnnouncer from '@/components/ScreenReaderAnnouncer';
-import { 
-  FileText, Eye, Settings, CheckCircle, Lock, XCircle, 
-  Circle, AlertCircle, AlertTriangle, AlertOctagon,
-  Construction, Lightbulb, Droplet, Droplets, Trash2, 
-  Milestone, Trees, Bus, TrafficCone, Building2, Zap, Wrench,
-  Camera, ClipboardList, RotateCcw, Target, Calendar,
-  User, UserCog, Mail, MapPin, Navigation, Globe,
-  Satellite, Search, ArrowLeft, ThumbsUp, BarChart3,
-  Clock, Building
+import 'leaflet/dist/leaflet.css';
+import {
+  FileText, CheckCircle, Construction, Lightbulb, Droplet,
+  Droplets, Trash2, Milestone, Trees, Bus, Zap, Wrench,
+  Camera, Calendar, User, UserCog, Mail, MapPin, Navigation, Globe,
+  Satellite, ArrowLeft, ThumbsUp, Clock, Check, Loader2,
+  AlertCircle
 } from 'lucide-react';
 
 interface Report {
@@ -68,86 +66,86 @@ interface Report {
   estimatedResolutionDate?: string;
   createdAt: string;
   updatedAt: string;
-  isPublic: boolean;
 }
 
-const StatusIcon = ({ status }: { status: string }) => {
-  const icons: Record<string, any> = {
-    submitted: FileText,
-    under_review: Eye,
-    in_progress: Settings,
-    resolved: CheckCircle,
-    closed: Lock,
-    rejected: XCircle,
-  };
-  const Icon = icons[status] || FileText;
-  return <Icon className="w-4 h-4" />;
-};
+// Mini Interactive Satellite Map Component
+function MiniSatelliteMap({ lat, lng }: { lat: number; lng: number }) {
+  const containerRef = useRef<HTMLDivElement>(null);
 
-const PriorityIcon = ({ priority }: { priority: string }) => {
-  const icons: Record<string, any> = {
-    low: Circle,
-    medium: AlertCircle,
-    high: AlertTriangle,
-    urgent: AlertOctagon,
-  };
-  const Icon = icons[priority] || Circle;
-  return <Icon className="w-4 h-4" />;
-};
+  useEffect(() => {
+    if (!containerRef.current || !lat || !lng) return;
 
-const CategoryIcon = ({ category }: { category: string }) => {
-  const icons: Record<string, any> = {
-    potholes: Construction,
-    'street lights': Lightbulb,
-    'water supply': Droplet,
-    drainage: Droplets,
-    'garbage collection': Trash2,
-    'roads & pavements': Milestone,
-    'parks & gardens': Trees,
-    'public transport': Bus,
-    'traffic signals': TrafficCone,
-    'public buildings': Building2,
-    roads: Milestone,
-    water: Droplet,
-    electricity: Zap,
-    sewage: Droplets,
-    streetlight: Lightbulb,
-    waste: Trash2,
-    transport: Bus,
-    park: Trees,
-    building: Building,
-    other: Wrench,
-  };
-  const Icon = icons[category.toLowerCase()] || Wrench;
-  return <Icon className="w-4 h-4" />;
-};
+    let mapInstance: any = null;
 
-const statusColors = {
-  submitted: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  under_review: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-  in_progress: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-  resolved: 'bg-green-500/10 text-green-500 border-green-500/20',
-  closed: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
-  rejected: 'bg-red-500/10 text-red-500 border-red-500/20',
-};
+    import('leaflet').then((L) => {
+      if (!containerRef.current) return;
 
-const priorityColors = {
-  low: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
-  medium: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  high: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  urgent: 'bg-red-500/10 text-red-400 border-red-500/20',
-};
+      // Clean up previous leaflet instance if any
+      if ((containerRef.current as any)._leaflet_id) {
+        (containerRef.current as any)._leaflet_id = null;
+      }
+
+      mapInstance = L.map(containerRef.current, {
+        center: [lat, lng],
+        zoom: 17,
+        zoomControl: false,
+        attributionControl: false,
+        dragging: true,
+        touchZoom: true,
+        scrollWheelZoom: false,
+      });
+
+      // High-resolution Google Satellite Hybrid tiles
+      L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        subdomains: ['0', '1', '2', '3'],
+        maxZoom: 21,
+        maxNativeZoom: 20,
+      }).addTo(mapInstance);
+
+      // Pulse pin marker
+      const markerIcon = L.divIcon({
+        className: 'custom-satellite-pin',
+        html: `
+          <div style="position:relative;width:18px;height:18px;">
+            <div style="position:absolute;inset:0;background:#ef4444;border-radius:50%;opacity:0.75;animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite;"></div>
+            <div style="position:relative;width:18px;height:18px;background:#ef4444;border:2.5px solid #ffffff;border-radius:50%;box-shadow:0 0 12px rgba(239,68,68,0.9);"></div>
+          </div>
+        `,
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+      });
+
+      L.marker([lat, lng], { icon: markerIcon }).addTo(mapInstance);
+    });
+
+    return () => {
+      if (mapInstance) {
+        mapInstance.remove();
+        mapInstance = null;
+      }
+    };
+  }, [lat, lng]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="w-full h-full min-h-[200px] rounded-xl overflow-hidden border border-border/80 bg-slate-950 shadow-inner"
+    />
+  );
+}
 
 export default function ReportDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const locale = params.locale || 'en';
+  const locale = (params.locale as string) || 'en';
   const reportId = params.id as string;
-  
+
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [announcement, setAnnouncement] = useState('');
+  const [upvoted, setUpvoted] = useState(false);
+  const [upvoteLoading, setUpvoteLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchReport();
@@ -162,24 +160,83 @@ export default function ReportDetailPage() {
 
       if (data.success) {
         setReport(data.data);
-        setAnnouncement(`Report loaded: ${data.data.title}. Status: ${data.data.status}`);
       } else {
-        setError(data.error || 'Report not found');
+        setError(data.error || 'Report ticket not found');
       }
     } catch (err) {
       console.error('Error fetching report:', err);
-      setError('Failed to load report');
+      setError('Failed to load report ticket');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleUpvote = async () => {
+    if (!report || upvoteLoading) return;
+    setUpvoteLoading(true);
+    try {
+      const res = await fetch(`/api/reports/${report._id}/upvote`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setReport(prev => prev ? { ...prev, upvotes: (prev.upvotes || 0) + (upvoted ? -1 : 1) } : null);
+        setUpvoted(!upvoted);
+      }
+    } catch (e) {
+      console.error('Upvote error:', e);
+    } finally {
+      setUpvoteLoading(false);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const map: Record<string, string> = {
+      submitted: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+      under_review: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+      in_progress: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
+      resolved: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+      closed: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20',
+      rejected: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+    };
+    return map[status] || 'bg-slate-500/10 text-slate-500 border-slate-500/20';
+  };
+
+  const getPriorityBadge = (priority: string) => {
+    const map: Record<string, string> = {
+      low: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20',
+      medium: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+      high: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+      urgent: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 font-bold',
+    };
+    return map[priority] || 'bg-slate-500/10 text-slate-500 border-slate-500/20';
+  };
+
+  const getCategoryIcon = (category: string) => {
+    const icons: Record<string, any> = {
+      potholes: Construction,
+      'street lights': Lightbulb,
+      'water supply': Droplet,
+      drainage: Droplets,
+      'garbage collection': Trash2,
+      'roads & pavements': Milestone,
+      'parks & gardens': Trees,
+      'public transport': Bus,
+      roads: Milestone,
+      water: Droplet,
+      electricity: Zap,
+      streetlight: Lightbulb,
+      waste: Trash2,
+    };
+    const Icon = icons[category.toLowerCase()] || Wrench;
+    return <Icon className="w-4 h-4 text-primary" />;
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-gray-950 to-blue-950/20 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-t-4 border-cyan-500 mx-auto mb-4"></div>
-          <p className="text-gray-400 text-lg">Loading report...</p>
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex flex-col items-center justify-center py-20 space-y-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-xs text-muted-foreground">Loading report details...</p>
         </div>
       </div>
     );
@@ -187,25 +244,29 @@ export default function ReportDetailPage() {
 
   if (error || !report) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-gray-950 to-blue-950/20 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full bg-gray-900/90 backdrop-blur-xl border-2 border-red-500/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-500 text-2xl">
-              <XCircle className="w-6 h-6" />
-              Error
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-gray-400 text-lg">{error || 'Report not found'}</p>
-            <Button onClick={() => router.push(`/${locale}/reports`)} className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
-              <span className="mr-2">←</span>
-              Back to Reports
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center p-4">
+          <Card className="max-w-md w-full border border-border/80 shadow-md p-6 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-foreground">Report Not Found</h3>
+              <p className="text-xs text-muted-foreground">{error || 'This ticket may have been removed or is unavailable.'}</p>
+            </div>
+            <Button onClick={() => router.push(`/${locale}/reports`)} className="w-full text-xs">
+              <ArrowLeft className="w-4 h-4 mr-1.5" />
+              Return to All Reports
             </Button>
-          </CardContent>
-        </Card>
+          </Card>
+        </div>
       </div>
     );
   }
+
+  const [lng, lat] = report.location?.coordinates || [0, 0];
+  const hasValidLocation = lat !== 0 && lng !== 0;
 
   const createdDate = new Date(report.createdAt).toLocaleDateString('en-IN', {
     day: 'numeric',
@@ -219,517 +280,355 @@ export default function ReportDetailPage() {
     year: 'numeric',
   });
 
-  const estimatedDate = report.estimatedResolutionDate 
-    ? new Date(report.estimatedResolutionDate).toLocaleDateString('en-IN', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      })
-    : 'Not set';
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-950 to-blue-950/20 relative overflow-hidden">
-      {/* Screen Reader Announcements */}
-      <ScreenReaderAnnouncer message={announcement} />
-      
-      {/* Animated Background Grid */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1a1a1a_1px,transparent_1px),linear-gradient(to_bottom,#1a1a1a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)] opacity-20" />
-      
-      {/* Glow Effects */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+    <div className="min-h-screen bg-background flex flex-col">
+      <Navbar />
 
-      <div className="container mx-auto px-4 py-8 relative z-10 max-w-7xl">
-        {/* Back Button */}
-        <Button
-          variant="outline"
-          onClick={() => router.push(`/${locale}/reports`)}
-          className="mb-6 group hover:border-blue-500/50 transition-all border-gray-700"
-          aria-label="Go back to reports list"
-        >
-          <span className="mr-2 group-hover:-translate-x-1 transition-transform">←</span>
-          Back to Reports
-        </Button>
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 flex-1">
+        {/* Navigation Breadcrumb & Back Action */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-border/60">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
+              <Link href={`/${locale}`} className="hover:text-foreground transition-colors">
+                Home
+              </Link>
+              <span>/</span>
+              <Link href={`/${locale}/reports`} className="hover:text-foreground transition-colors">
+                Reports
+              </Link>
+              <span>/</span>
+              <span className="text-foreground font-mono">#{report._id.substring(report._id.length - 6)}</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground line-clamp-1">
+              {report.title}
+            </h1>
+          </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content */}
+          <div className="flex items-center gap-2.5">
+            <Button
+              onClick={handleUpvote}
+              disabled={upvoteLoading}
+              variant="outline"
+              size="sm"
+              className={`flex items-center gap-1.5 text-xs font-semibold ${upvoted ? 'bg-primary/10 text-primary border-primary/30' : ''
+                }`}
+            >
+              <ThumbsUp className={`w-3.5 h-3.5 ${upvoted ? 'fill-primary text-primary' : ''}`} />
+              <span>{report.upvotes || 0} Upvotes</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/${locale}/reports`)}
+              className="flex items-center gap-1.5 text-xs font-medium"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Layout Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          {/* Main Column (2/3) */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Progress Bar Card */}
-            <Card className="p-8 bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl border-2 border-blue-500/20 shadow-2xl shadow-blue-500/10 hover:border-blue-500/40 transition-all duration-300">
-              <h2 className="text-2xl font-bold mb-6 bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent">
-                Issue Progress
-              </h2>
-              <IssueProgressBar status={report.status} showLabels={true} size="lg" />
+            {/* Issue Progress Bar Card */}
+            <Card className="border border-border/80 shadow-xs bg-card">
+              <CardHeader className="p-5 pb-3 border-b border-border/60">
+                <CardTitle className="text-base font-semibold flex items-center justify-between text-foreground">
+                  <span>Resolution Lifecycle</span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusBadge(report.status)}`}>
+                    {report.status.replace('_', ' ').toUpperCase()}
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-5">
+                <IssueProgressBar status={report.status} showLabels={true} size="lg" />
+              </CardContent>
             </Card>
 
-            {/* Header Card */}
-            <Card className="p-8 bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl border-2 border-blue-500/20 shadow-2xl shadow-blue-500/10 hover:border-blue-500/40 transition-all duration-300">
-              {/* Status & Priority Badges */}
-              <div className="flex flex-wrap gap-3 mb-6">
-                <Badge className={`${statusColors[report.status as keyof typeof statusColors]} px-4 py-2 text-sm font-semibold border-2 backdrop-blur-sm`}>
-                  <span className="mr-2"><StatusIcon status={report.status} /></span>
-                  {report.status.replace('_', ' ').toUpperCase()}
-                </Badge>
-                <Badge className={`${priorityColors[report.priority as keyof typeof priorityColors]} px-4 py-2 text-sm font-semibold border-2 backdrop-blur-sm`}>
-                  <span className="mr-2"><PriorityIcon priority={report.priority} /></span>
-                  {report.priority.toUpperCase()} PRIORITY
-                </Badge>
-                <Badge className="bg-cyan-500/10 text-cyan-400 border-2 border-cyan-500/20 px-4 py-2 text-sm font-semibold backdrop-blur-sm">
-                  <span className="mr-2"><CategoryIcon category={report.category} /></span>
-                  {report.category}
-                </Badge>
-              </div>
+            {/* Main Issue Details Card */}
+            <Card className="border border-border/80 shadow-xs bg-card">
+              <CardContent className="p-5 sm:p-6 space-y-4">
+                {/* Badges Bar */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${getStatusBadge(report.status)}`}>
+                    {report.status.replace('_', ' ').toUpperCase()}
+                  </span>
+                  <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border uppercase ${getPriorityBadge(report.priority)}`}>
+                    {report.priority} PRIORITY
+                  </span>
+                  <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-secondary text-foreground border border-border/60 flex items-center gap-1.5 capitalize">
+                    {getCategoryIcon(report.category)}
+                    <span>{report.category}</span>
+                  </span>
+                </div>
 
-              {/* Title */}
-              <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent leading-tight">
-                {report.title}
-              </h1>
-
-              {/* Description */}
-              <div className="prose prose-invert max-w-none">
-                <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
-                  <div className="flex items-start gap-3">
-                    <ClipboardList className="w-6 h-6 mt-1" />
-                    <p className="text-gray-300 leading-relaxed text-lg">{report.description}</p>
+                {/* Title & Description */}
+                <div className="space-y-2 pt-1">
+                  <h2 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
+                    {report.title}
+                  </h2>
+                  <div className="p-4 bg-secondary/40 rounded-xl border border-border/60 text-sm text-foreground/90 leading-relaxed whitespace-pre-line">
+                    {report.description}
                   </div>
                 </div>
-              </div>
-            </Card>
 
-            {/* Images Gallery */}
-            {report.images && report.images.length > 0 && (
-              <Card className="p-8 bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl border-2 border-blue-500/20 shadow-2xl shadow-blue-500/10 hover:border-blue-500/40 transition-all duration-300">
-                <div className="flex items-center gap-3 mb-6">
-                  <Camera className="w-6 h-6" />
-                  <h2 className="text-2xl font-bold text-white">Report Images</h2>
-                  <Badge className="ml-auto bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                    {report.images.length} {report.images.length === 1 ? 'Photo' : 'Photos'}
-                  </Badge>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {report.images.map((image: string, index: number) => (
-                    <a
-                      key={index}
-                      href={image}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group relative aspect-square rounded-xl overflow-hidden border-2 border-gray-700/50 hover:border-blue-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20"
-                    >
-                      <img
-                        src={image}
-                        alt={`Report image ${index + 1}`}
-                        className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      <div className="absolute bottom-3 left-3 bg-black/80 backdrop-blur-sm px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <span className="text-white text-sm font-semibold">View Full Size</span>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              </Card>
-            )}
+                {/* Photo Evidence Gallery */}
+                {report.images && report.images.length > 0 && (
+                  <div className="space-y-2.5 pt-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Camera className="w-3.5 h-3.5 text-primary" />
+                        <span>Live Photo Evidence ({report.images.length})</span>
+                      </h3>
+                      <span className="text-[11px] text-muted-foreground">Click to view full size</span>
+                    </div>
 
-            {/* Resolution Details */}
-            {report.status === 'resolved' && report.resolutionNote && (
-              <Card className="p-8 bg-gradient-to-br from-green-900/20 to-green-800/20 backdrop-blur-xl border-2 border-green-500/30 shadow-2xl shadow-green-500/10">
-                <div className="flex items-center gap-3 mb-6">
-                  <CheckCircle className="w-6 h-6" />
-                  <h2 className="text-2xl font-bold text-green-400">Resolution Details</h2>
-                </div>
-                <div className="bg-green-950/30 backdrop-blur-sm rounded-xl p-6 border border-green-500/20">
-                  <p className="text-green-100 leading-relaxed text-lg">{report.resolutionNote}</p>
-                </div>
-                
-                {report.resolvedAt && (
-                  <div className="mt-4 flex items-center gap-2 text-green-300">
-                    <Calendar className="w-5 h-5" />
-                    <span>Resolved on {new Date(report.resolvedAt).toLocaleDateString()}</span>
-                  </div>
-                )}
-
-                {/* Resolution Images */}
-                {report.resolutionImages && report.resolutionImages.length > 0 && (
-                  <div className="mt-6">
-                    <h3 className="text-lg font-semibold text-green-400 mb-4 flex items-center gap-2">
-                      <Camera className="w-6 h-6" />
-                      After Resolution
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {report.resolutionImages.map((image: string, index: number) => (
-                        <a
-                          key={index}
-                          href={image}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group relative aspect-square rounded-xl overflow-hidden border-2 border-green-500/30 hover:border-green-400/50 transition-all duration-300 hover:scale-105"
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {report.images.map((img, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => setSelectedImage(img)}
+                          className="relative aspect-video rounded-lg overflow-hidden border border-border/80 bg-secondary/50 cursor-pointer group shadow-xs hover:border-primary transition-all"
                         >
                           <img
-                            src={image}
-                            alt={`Resolution image ${index + 1}`}
-                            className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
+                            src={img}
+                            alt={`Evidence #${idx + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
-                        </a>
+                          <span className="absolute bottom-1.5 left-1.5 bg-black/75 text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
+                            Photo #{idx + 1}
+                          </span>
+                        </div>
                       ))}
                     </div>
                   </div>
                 )}
-              </Card>
-            )}
+
+                {/* Resolution Completion Note */}
+                {report.status === 'resolved' && report.resolutionNote && (
+                  <div className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-2">
+                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold text-sm">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Resolution Completed</span>
+                    </div>
+                    <p className="text-xs text-foreground/90 leading-relaxed">
+                      {report.resolutionNote}
+                    </p>
+                    {report.resolvedAt && (
+                      <p className="text-[11px] text-muted-foreground">
+                        Resolved on {new Date(report.resolvedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Timeline Audit History */}
+            <Card className="border border-border/80 shadow-xs bg-card">
+              <CardHeader className="p-5 pb-3 border-b border-border/60">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                  <Clock className="w-4 h-4 text-primary" />
+                  <span>Audit Trail & Timeline</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 bg-secondary/40 rounded-lg border border-border/60 space-y-1">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Submitted On</p>
+                    <p className="text-xs font-bold text-foreground">{createdDate}</p>
+                    <p className="text-[10px] text-muted-foreground">Citizen creation</p>
+                  </div>
+                  <div className="p-3 bg-secondary/40 rounded-lg border border-border/60 space-y-1">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Last Status Update</p>
+                    <p className="text-xs font-bold text-foreground">{updatedDate}</p>
+                    <p className="text-[10px] text-muted-foreground">Municipal activity</p>
+                  </div>
+                  <div className="p-3 bg-secondary/40 rounded-lg border border-border/60 space-y-1">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Target Resolution</p>
+                    <p className="text-xs font-bold text-primary">
+                      {report.estimatedResolutionDate
+                        ? new Date(report.estimatedResolutionDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                        : 'Standard SLA'}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Expected delivery</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Sidebar */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Quick Stats */}
-            <Card className="p-6 bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl border-2 border-blue-500/20 shadow-2xl shadow-blue-500/10 hover:border-blue-500/40 transition-all duration-300">
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
-                <BarChart3 className="w-5 h-5" />
-                Quick Stats
-              </h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-blue-500/10 rounded-xl border border-blue-500/20 hover:bg-blue-500/20 transition-colors">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-gray-400 flex items-center gap-2">
-                      <Eye className="w-5 h-5" />
-                      <span className="font-semibold">Views</span>
-                    </span>
-                    <span className="text-xs text-gray-500 ml-7">Total views on this report</span>
+          {/* Right Sidebar (1/3) */}
+          <div className="space-y-6">
+            {/* Satellite & Aerial Map Card */}
+            <Card className="border border-border/80 shadow-xs bg-card overflow-hidden">
+              <CardHeader className="p-5 pb-3 border-b border-border/60">
+                <CardTitle className="text-sm font-semibold flex items-center justify-between text-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <Satellite className="w-4 h-4 text-primary" />
+                    <span>High-Res Satellite View</span>
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-mono">Zoom: 17x</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3">
+                {hasValidLocation ? (
+                  <>
+                    {/* Live Satellite Mini Map Viewport */}
+                    <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-border/80 bg-slate-950 shadow-inner">
+                      <MiniSatelliteMap lat={lat} lng={lng} />
+
+                      <div className="absolute bottom-2 left-2 bg-black/80 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-0.5 rounded pointer-events-none z-[400]">
+                        {lat.toFixed(5)}, {lng.toFixed(5)}
+                      </div>
+                    </div>
+
+                    {/* Map Action Buttons */}
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank')}
+                        className="text-xs flex items-center justify-center gap-1.5"
+                      >
+                        <Navigation className="w-3.5 h-3.5 text-primary" />
+                        <span>Google Maps</span>
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(`https://www.google.com/maps/@${lat},${lng},21z/data=!3m1!1e3`, '_blank')}
+                        className="text-xs flex items-center justify-center gap-1.5"
+                      >
+                        <Globe className="w-3.5 h-3.5 text-primary" />
+                        <span>Earth 3D</span>
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="py-8 text-center text-xs text-muted-foreground">
+                    Location coordinates not recorded for this report.
                   </div>
-                  <span className="text-2xl font-bold text-blue-400">{report.viewCount || 0}</span>
-                </div>
-                <div className="flex items-center justify-between p-4 bg-cyan-500/10 rounded-xl border border-cyan-500/20 hover:bg-cyan-500/20 transition-colors">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-gray-400 flex items-center gap-2">
-                      <ThumbsUp className="w-5 h-5" />
-                      <span className="font-semibold">Upvotes</span>
-                    </span>
-                    <span className="text-xs text-gray-500 ml-7">Community support count</span>
-                  </div>
-                  <span className="text-2xl font-bold text-cyan-400">{report.upvotes || 0}</span>
-                </div>
-              </div>
+                )}
+              </CardContent>
             </Card>
 
-            {/* Location Card */}
-            <Card className="p-6 bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl border-2 border-blue-500/20 shadow-2xl shadow-blue-500/10 hover:border-blue-500/40 transition-all duration-300">
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
-                <MapPin className="w-5 h-5" />
-                Location
-              </h3>
-              <div className="space-y-4">
+            {/* Geographic Address Card */}
+            <Card className="border border-border/80 shadow-xs bg-card">
+              <CardHeader className="p-5 pb-3 border-b border-border/60">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                  <MapPin className="w-4 h-4 text-primary" />
+                  <span>Location & Ward Info</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-5 space-y-3 text-xs">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Street Address</p>
+                  <p className="text-foreground font-medium mt-0.5 leading-relaxed">{report.address}</p>
+                </div>
+
                 {report.area && (
-                  <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-                    <p className="text-sm text-gray-400 mb-1 flex items-center gap-2">
-                      <Building className="w-5 h-5" />
-                      Area
-                    </p>
-                    <p className="font-semibold text-white text-lg">{report.area}</p>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Ward / Suburb</p>
+                    <p className="text-foreground font-semibold mt-0.5">{report.area}</p>
                   </div>
                 )}
-                {report.address && (
-                  <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-                    <p className="text-sm text-gray-400 mb-1 flex items-center gap-2">
-                      <Mail className="w-5 h-5" />
-                      Address
-                    </p>
-                    <p className="text-white leading-relaxed">{report.address}</p>
-                  </div>
-                )}
+
                 {report.landmark && (
-                  <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-                    <p className="text-sm text-gray-400 mb-1 flex items-center gap-2">
-                      <Building2 className="w-5 h-5" />
-                      Landmark
-                    </p>
-                    <p className="text-white leading-relaxed">{report.landmark}</p>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Landmark</p>
+                    <p className="text-foreground mt-0.5">{report.landmark}</p>
                   </div>
                 )}
-                {report.location && report.location.coordinates && (
-                  <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-                    <p className="text-sm text-gray-400 mb-1 flex items-center gap-2">
-                      <Globe className="w-5 h-5" />
-                      Coordinates
-                    </p>
-                    <p className="font-mono text-sm text-cyan-400">
-                      {report.location.coordinates[1].toFixed(6)}, {report.location.coordinates[0].toFixed(6)}
-                    </p>
-                  </div>
-                )}
-                <Button
-                  onClick={() => {
-                    const [lng, lat] = report.location.coordinates;
-                    window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
-                  }}
-                  className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold shadow-lg shadow-blue-500/20 group"
-                >
-                  <Navigation className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                  Open in Google Maps
-                </Button>
-              </div>
+              </CardContent>
             </Card>
 
-            {/* Satellite View Card */}
-            {report.location && report.location.coordinates && (
-              <Card className="p-6 bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl border-2 border-blue-500/20 shadow-2xl shadow-blue-500/10 hover:border-blue-500/40 transition-all duration-300">
-                <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
-                  <Satellite className="w-6 h-6" />
-                  <span>Satellite View</span>
-                </h3>
-                <p className="text-sm text-gray-400 mb-4 flex items-center gap-2">
-                  <MapPin className="w-5 h-5" />
-                  <span>High-resolution aerial view of the exact location</span>
-                </p>
-                <div className="relative aspect-square rounded-xl overflow-hidden border-2 border-gray-700/50 hover:border-blue-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20">
-                  <img
-                    src={
-                      process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-                        ? `https://maps.googleapis.com/maps/api/staticmap?center=${report.location.coordinates[1]},${report.location.coordinates[0]}&zoom=18&size=600x600&scale=2&maptype=hybrid&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-                        : `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${report.location.coordinates[0]},${report.location.coordinates[1]},19,0,0/800x800@2x?access_token=${process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}`
-                    }
-                    alt="Satellite view"
-                    className="object-cover w-full h-full"
-                    loading="lazy"
-                  />
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                    <div className="relative">
-                      <div className="w-8 h-8 bg-red-500 rounded-full border-4 border-white shadow-2xl animate-pulse"></div>
-                      <div className="absolute inset-0 w-8 h-8 bg-red-500 rounded-full animate-ping opacity-75"></div>
-                    </div>
-                  </div>
-                  <div className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-blue-500/30">
-                    <div className="flex items-center gap-2">
-                      <Search className="w-4 h-4 text-gray-300" />
-                      <span className="text-xs text-white font-semibold">Satellite Clarity</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <Button
-                    onClick={() => {
-                      const [lng, lat] = report.location.coordinates;
-                      window.open(`https://www.google.com/maps/@${lat},${lng},21z/data=!3m1!1e3`, '_blank');
-                    }}
-                    variant="outline"
-                    className="w-full text-sm border-gray-700 hover:border-blue-500/50 hover:bg-blue-500/10"
-                  >
-                    <Globe className="w-4 h-4 mr-2" />
-                    Google Earth
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      const [lng, lat] = report.location.coordinates;
-                      window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
-                    }}
-                    variant="outline"
-                    className="w-full text-sm border-gray-700 hover:border-cyan-500/50 hover:bg-cyan-500/10"
-                  >
-                    <Navigation className="w-4 h-4 mr-2" />
-                    Google Maps
-                  </Button>
-                </div>
-              </Card>
-            )}
-
-            {/* Reporter Info */}
+            {/* Reporter Profile Card */}
             {report.reportedBy && (
-              <Card className="p-6 bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl border-2 border-blue-500/20 shadow-2xl shadow-blue-500/10 hover:border-blue-500/40 transition-all duration-300">
-                <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
-                  <User className="w-6 h-6" />
-                  Reported By
-                </h3>
-                <div className="flex items-center gap-4 bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50 hover:border-blue-500/30 transition-colors">
-                  {report.reportedBy.avatar ? (
-                    <img
-                      src={report.reportedBy.avatar}
-                      alt={report.reportedBy.name}
-                      className="w-14 h-14 rounded-full border-2 border-blue-500/30 shadow-lg shadow-blue-500/20"
-                    />
-                  ) : (
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-2xl font-bold text-white border-2 border-blue-500/30 shadow-lg shadow-blue-500/20">
-                      {report.reportedBy.name?.[0]?.toUpperCase() || report.reportedBy.email?.[0]?.toUpperCase() || 'U'}
+              <Card className="border border-border/80 shadow-xs bg-card">
+                <CardHeader className="p-5 pb-3 border-b border-border/60">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                    <User className="w-4 h-4 text-primary" />
+                    <span>Reported By Citizen</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-sm font-bold shrink-0">
+                      {report.reportedBy.name?.[0]?.toUpperCase() || 'C'}
                     </div>
-                  )}
-                  <div>
-                    <p className="font-semibold text-white text-lg">
-                      {report.reportedBy.name || 'Anonymous'}
-                    </p>
-                    <p className="text-sm text-gray-400 flex items-center gap-1">
-                      <Mail className="w-4 h-4" />
-                      {report.reportedBy.email}
-                    </p>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-xs text-foreground truncate">{report.reportedBy.name || 'Citizen'}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{report.reportedBy.email}</p>
+                    </div>
                   </div>
-                </div>
+                </CardContent>
               </Card>
             )}
 
-            {/* Assigned Manager */}
-            {report.assignedTo && (
-              <Card className="p-6 bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl border-2 border-purple-500/20 shadow-2xl shadow-purple-500/10 hover:border-purple-500/40 transition-all duration-300">
-                <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
-                  <UserCog className="w-6 h-6" />
-                  Assigned Manager
-                </h3>
-                <div className="flex items-center gap-4 bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50 hover:border-purple-500/30 transition-colors">
-                  {report.assignedTo.avatar ? (
-                    <img
-                      src={report.assignedTo.avatar}
-                      alt={report.assignedTo.name}
-                      className="w-14 h-14 rounded-full border-2 border-purple-500/30 shadow-lg shadow-purple-500/20"
-                    />
-                  ) : (
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl font-bold text-white border-2 border-purple-500/30 shadow-lg shadow-purple-500/20">
-                      {report.assignedTo.name?.[0]?.toUpperCase() || report.assignedTo.email?.[0]?.toUpperCase() || 'M'}
+            {/* Municipal Operations Team Card */}
+            {(report.approvedBy || report.assignedTo || report.initiatedBy) && (
+              <Card className="border border-border/80 shadow-xs bg-card">
+                <CardHeader className="p-5 pb-3 border-b border-border/60">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                    <UserCog className="w-4 h-4 text-primary" />
+                    <span>Municipal Response Team</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-5 space-y-3 text-xs">
+                  {report.approvedBy && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Officer Approved:</span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <Check className="w-3 h-3" />
+                        {report.approvedBy.name}
+                      </span>
                     </div>
                   )}
-                  <div>
-                    <p className="font-semibold text-white text-lg">
-                      {report.assignedTo.name}
-                    </p>
-                    <p className="text-sm text-gray-400 flex items-center gap-1">
-                      <Mail className="w-4 h-4" />
-                      {report.assignedTo.email}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            )}
 
-            {/* Approved By */}
-            {report.approvedBy && (
-              <Card className="p-6 bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl border-2 border-green-500/20 shadow-2xl shadow-green-500/10 hover:border-green-500/40 transition-all duration-300">
-                <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
-                  <CheckCircle className="w-6 h-6 text-green-400" />
-                  Approved By
-                </h3>
-                <div className="flex items-center gap-4 bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50 hover:border-green-500/30 transition-colors">
-                  {report.approvedBy.avatar ? (
-                    <img
-                      src={report.approvedBy.avatar}
-                      alt={report.approvedBy.name}
-                      className="w-14 h-14 rounded-full border-2 border-green-500/30 shadow-lg shadow-green-500/20"
-                    />
-                  ) : (
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-2xl font-bold text-white border-2 border-green-500/30 shadow-lg shadow-green-500/20">
-                      {report.approvedBy.name?.[0]?.toUpperCase() || report.approvedBy.email?.[0]?.toUpperCase() || 'A'}
+                  {report.initiatedBy && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Repair Initiated By:</span>
+                      <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                        {report.initiatedBy.name}
+                      </span>
                     </div>
                   )}
-                  <div>
-                    <p className="font-semibold text-white text-lg">
-                      {report.approvedBy.name}
-                    </p>
-                    <p className="text-sm text-gray-400 flex items-center gap-1">
-                      <Mail className="w-4 h-4" />
-                      {report.approvedBy.email}
-                    </p>
-                    {report.approvedAt && (
-                      <p className="text-xs text-green-400 mt-1 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {new Date(report.approvedAt).toLocaleDateString('en-IN', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            )}
 
-            {/* Initiated By */}
-            {report.initiatedBy && (
-              <Card className="p-6 bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl border-2 border-cyan-500/20 shadow-2xl shadow-cyan-500/10 hover:border-cyan-500/40 transition-all duration-300">
-                <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
-                  <Settings className="w-6 h-6 text-cyan-400" />
-                  Resolution Initiated By
-                </h3>
-                <div className="flex items-center gap-4 bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50 hover:border-cyan-500/30 transition-colors">
-                  {report.initiatedBy.avatar ? (
-                    <img
-                      src={report.initiatedBy.avatar}
-                      alt={report.initiatedBy.name}
-                      className="w-14 h-14 rounded-full border-2 border-cyan-500/30 shadow-lg shadow-cyan-500/20"
-                    />
-                  ) : (
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-2xl font-bold text-white border-2 border-cyan-500/30 shadow-lg shadow-cyan-500/20">
-                      {report.initiatedBy.name?.[0]?.toUpperCase() || report.initiatedBy.email?.[0]?.toUpperCase() || 'I'}
+                  {report.assignedTo && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Assigned Manager:</span>
+                      <span className="font-semibold text-foreground">
+                        {report.assignedTo.name}
+                      </span>
                     </div>
                   )}
-                  <div>
-                    <p className="font-semibold text-white text-lg">
-                      {report.initiatedBy.name}
-                    </p>
-                    <p className="text-sm text-gray-400 flex items-center gap-1">
-                      <Mail className="w-4 h-4" />
-                      {report.initiatedBy.email}
-                    </p>
-                    {report.initiatedAt && (
-                      <p className="text-xs text-cyan-400 mt-1 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {new Date(report.initiatedAt).toLocaleDateString('en-IN', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                </CardContent>
               </Card>
             )}
-
-            {/* Timeline */}
-            <Card className="p-6 bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl border-2 border-blue-500/20 shadow-2xl shadow-blue-500/10 hover:border-blue-500/40 transition-all duration-300">
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
-                <Clock className="w-6 h-6" />
-                Timeline
-              </h3>
-              <div className="space-y-4">
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full bg-blue-500/20 border-2 border-blue-500 flex items-center justify-center flex-shrink-0">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-                    <p className="text-sm text-gray-400 font-semibold flex items-center gap-2">
-                      <span>Created</span>
-                    </p>
-                    <p className="font-semibold text-white">{createdDate}</p>
-                    <p className="text-xs text-gray-500 mt-1">Report submitted by user</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full bg-cyan-500/20 border-2 border-cyan-500 flex items-center justify-center flex-shrink-0">
-                    <RotateCcw className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-                    <p className="text-sm text-gray-400 font-semibold flex items-center gap-2">
-                      <span>Last Updated</span>
-                    </p>
-                    <p className="font-semibold text-white">{updatedDate}</p>
-                    <p className="text-xs text-gray-500 mt-1">Most recent status change</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full bg-purple-500/20 border-2 border-purple-500 flex items-center justify-center flex-shrink-0">
-                    <Target className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-                    <p className="text-sm text-gray-400 font-semibold flex items-center gap-2">
-                      <span>Estimated Resolution</span>
-                    </p>
-                    <p className="font-semibold text-white">{estimatedDate}</p>
-                    <p className="text-xs text-gray-500 mt-1">Expected completion date</p>
-                  </div>
-                </div>
-              </div>
-            </Card>
           </div>
         </div>
       </div>
+
+      {/* Full Size Image Modal */}
+      {selectedImage && (
+        <div
+          onClick={() => setSelectedImage(null)}
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+        >
+          <div className="relative max-w-4xl max-h-[90vh] rounded-2xl overflow-hidden shadow-2xl border border-white/20">
+            <img
+              src={selectedImage}
+              alt="Full size evidence"
+              className="max-w-full max-h-[85vh] object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

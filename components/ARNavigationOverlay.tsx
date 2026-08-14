@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
 import { 
-  Navigation2, MapPin, AlertCircle, Clock, 
+  Navigation2, MapPin, AlertCircle, Compass,
   Construction, Lightbulb, Droplet, Droplets, 
   Trash2, Milestone, Trees, Bus, Wrench, X
 } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 
 // Extend DeviceOrientationEvent for iOS webkit properties
 interface DeviceOrientationEventWithWebkit extends DeviceOrientationEvent {
@@ -48,7 +48,7 @@ export default function ARNavigationOverlay({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [deviceOrientation, setDeviceOrientation] = useState<number>(0);
   const [compassHeading, setCompassHeading] = useState<number | null>(null);
-  const [needsCalibration, setNeedsCalibration] = useState(false);
+  const [needsPermission, setNeedsPermission] = useState<boolean>(false);
 
   // Bulletproof camera stop function
   const stopCamera = useCallback(() => {
@@ -76,6 +76,40 @@ export default function ARNavigationOverlay({
     onClose();
   }, [stopCamera, onClose]);
 
+  const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
+    const eventWithWebkit = event as DeviceOrientationEventWithWebkit;
+    
+    if (event.alpha !== null) {
+      let heading = event.alpha;
+      
+      if (eventWithWebkit.webkitCompassHeading !== undefined) {
+        heading = eventWithWebkit.webkitCompassHeading;
+      } else {
+        heading = 360 - event.alpha;
+      }
+      
+      setDeviceOrientation(heading);
+      setCompassHeading(heading);
+    }
+  }, []);
+
+  const requestCompassPermission = async () => {
+    if (
+      typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof (DeviceOrientationEvent as any).requestPermission === 'function'
+    ) {
+      try {
+        const response = await (DeviceOrientationEvent as any).requestPermission();
+        if (response === 'granted') {
+          setNeedsPermission(false);
+          window.addEventListener('deviceorientation', handleOrientation, true);
+        }
+      } catch (e) {
+        console.error('Error granting orientation permission:', e);
+      }
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
 
@@ -92,7 +126,6 @@ export default function ARNavigationOverlay({
         });
         
         if (!isMounted) {
-          // If component unmounted while awaiting permission/device
           stream.getTracks().forEach((track) => track.stop());
           return;
         }
@@ -104,54 +137,22 @@ export default function ARNavigationOverlay({
       } catch (err: any) {
         if (isMounted) {
           console.error('Camera access error:', err);
-          setCameraError(err.message || 'Failed to access camera');
+          setCameraError(err.message || 'Failed to access phone camera');
         }
       }
     };
 
     startCamera();
 
-    // Handle device orientation for compass heading
-    const handleOrientation = (event: DeviceOrientationEvent) => {
-      const eventWithWebkit = event as DeviceOrientationEventWithWebkit;
-      
-      if (event.alpha !== null) {
-        let heading = event.alpha;
-        
-        if (eventWithWebkit.webkitCompassHeading !== undefined) {
-          heading = eventWithWebkit.webkitCompassHeading;
-        } else {
-          heading = 360 - event.alpha;
-        }
-        
-        setDeviceOrientation(heading);
-        setCompassHeading(heading);
-        
-        if (event.alpha === 0 || (event.absolute === false)) {
-          setNeedsCalibration(true);
-        } else {
-          setNeedsCalibration(false);
-        }
-      }
-    };
-
-    const tryAbsoluteOrientation = () => {
-      window.addEventListener('deviceorientationabsolute', handleOrientation as any, true);
-    };
-
-    if (typeof DeviceOrientationEvent !== 'undefined') {
-      if ('requestPermission' in DeviceOrientationEvent) {
-        (DeviceOrientationEvent as any).requestPermission()
-          .then((response: string) => {
-            if (response === 'granted') {
-              tryAbsoluteOrientation();
-              window.addEventListener('deviceorientation', handleOrientation);
-            }
-          })
-          .catch(console.error);
+    // Check device orientation support
+    if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
+      if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+        // iOS 13+ requires user gesture
+        setNeedsPermission(true);
       } else {
-        tryAbsoluteOrientation();
-        window.addEventListener('deviceorientation', handleOrientation);
+        // Android and standard browsers
+        window.addEventListener('deviceorientationabsolute', handleOrientation as any, true);
+        window.addEventListener('deviceorientation', handleOrientation, true);
       }
     }
 
@@ -161,7 +162,7 @@ export default function ARNavigationOverlay({
       window.removeEventListener('deviceorientation', handleOrientation);
       window.removeEventListener('deviceorientationabsolute', handleOrientation as any);
     };
-  }, [stopCamera]);
+  }, [stopCamera, handleOrientation]);
 
   const getCategoryIcon = (category: string) => {
     const icons: Record<string, any> = {
@@ -193,9 +194,8 @@ export default function ARNavigationOverlay({
     return colors[status] || 'bg-slate-500/10 text-slate-400 border-slate-500/20';
   };
 
-  // Calculate arrow rotation relative to device orientation and target bearing
+  // Calculate arrow rotation relative to phone compass heading
   const arrowRotation = bearing - deviceOrientation;
-  
   let relativeAngle = arrowRotation;
   while (relativeAngle > 180) relativeAngle -= 360;
   while (relativeAngle < -180) relativeAngle += 360;
@@ -205,8 +205,8 @@ export default function ARNavigationOverlay({
   const CategoryIcon = getCategoryIcon(issue.category);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black">
-      {/* Camera Feed */}
+    <div className="fixed inset-0 z-50 bg-black overflow-hidden select-none touch-none">
+      {/* Camera Live Feed */}
       <video
         ref={videoRef}
         autoPlay
@@ -215,15 +215,37 @@ export default function ARNavigationOverlay({
         className="absolute inset-0 w-full h-full object-cover"
       />
 
+      {/* iOS Compass Permission Request Banner */}
+      {needsPermission && (
+        <div className="absolute top-16 left-4 right-4 z-50 pointer-events-auto flex justify-center">
+          <div className="bg-slate-900/95 backdrop-blur-md border border-blue-500/40 px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between gap-3 max-w-sm w-full">
+            <div className="flex items-center gap-2">
+              <Compass className="w-5 h-5 text-blue-400 shrink-0 animate-spin" />
+              <div>
+                <p className="text-xs font-semibold text-white">Enable iPhone Compass</p>
+                <p className="text-[10px] text-slate-300">Tap to sync device gyro sensors</p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={requestCompassPermission}
+              className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 h-auto font-medium shadow-xs shrink-0"
+            >
+              Enable
+            </Button>
+          </div>
+        </div>
+      )}
+
       {cameraError && (
-        <div className="absolute inset-0 bg-slate-950/90 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-slate-950/90 flex items-center justify-center p-4 z-50 pointer-events-auto">
           <Card className="max-w-md w-full bg-slate-900 border-slate-800 p-6 text-center space-y-4 shadow-2xl">
             <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
             <h3 className="text-lg font-bold text-white">Camera Access Error</h3>
             <p className="text-sm text-slate-400">{cameraError}</p>
             <button
               onClick={handleClose}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-medium transition-colors"
+              className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition-colors"
             >
               Close View
             </button>
@@ -231,25 +253,23 @@ export default function ARNavigationOverlay({
         </div>
       )}
 
-      {/* AR Overlay */}
+      {/* AR HUD Overlay */}
       <div className="absolute inset-0 pointer-events-none">
-        {/* Show arrow only if issue is in viewing cone */}
+        {/* Directional Guidance Arrow */}
         {isInView ? (
           <>
-            {/* Directional Arrow */}
             <div className="absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2">
               <div
                 style={{ 
                   transform: `rotate(${relativeAngle}deg)`,
-                  transition: 'transform 0.3s ease-out'
+                  transition: 'transform 0.2s ease-out'
                 }}
                 className="relative"
               >
-                <svg className="w-20 h-20 text-blue-500 drop-shadow-[0_0_20px_rgba(59,130,246,0.9)]" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="w-20 h-20 sm:w-24 sm:h-24 text-blue-500 drop-shadow-[0_0_24px_rgba(59,130,246,0.95)]" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2L12 18M12 18L6 12M12 18L18 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
                 </svg>
                 
-                {/* Distance indicator below arrow */}
                 <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md px-3 py-1 rounded-full border border-blue-500/40 shadow-lg">
                   <p className="text-white font-bold text-xs whitespace-nowrap">
                     {distance.toFixed(1)}m
@@ -259,21 +279,21 @@ export default function ARNavigationOverlay({
             </div>
 
             {/* Distance Display - Top Center */}
-            <div className="absolute top-16 left-1/2 -translate-x-1/2">
-              <div className="bg-slate-900/90 backdrop-blur-md px-4 py-1.5 rounded-lg border border-emerald-500/40 shadow-xl">
-                <p className="text-lg font-bold text-white text-center">
-                  {distance.toFixed(1)} <span className="text-xs text-emerald-400 font-medium">meters away</span>
+            <div className="absolute top-4 left-1/2 -translate-x-1/2">
+              <div className="bg-slate-900/90 backdrop-blur-md px-4 py-1.5 rounded-full border border-emerald-500/40 shadow-xl">
+                <p className="text-sm font-bold text-white text-center">
+                  {distance.toFixed(1)} <span className="text-xs text-emerald-400 font-medium">m away</span>
                 </p>
               </div>
             </div>
           </>
         ) : (
-          /* Show "Turn around" guidance */
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 max-w-xs">
-            <div className="bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-lg border border-amber-500/40 shadow-xl flex items-center gap-2.5">
+          /* "Turn around" guidance */
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 max-w-xs px-4">
+            <div className="bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-xl border border-amber-500/40 shadow-xl flex items-center gap-2.5">
               <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
               <div>
-                <p className="text-xs font-semibold text-amber-400">Turn Around</p>
+                <p className="text-xs font-semibold text-amber-400">Target Out of View</p>
                 <p className="text-xs text-slate-300">
                   {relativeAngle > 0 ? 'Turn Right' : 'Turn Left'} ({Math.abs(Math.round(relativeAngle))}°)
                 </p>
@@ -282,11 +302,11 @@ export default function ARNavigationOverlay({
           </div>
         )}
 
-        {/* Issue Info Card - Bottom */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-md px-4 pointer-events-auto">
-          <div className="bg-slate-900/95 backdrop-blur-md border border-slate-800 rounded-xl shadow-2xl p-4 space-y-3">
+        {/* Issue Summary Card - Bottom on Phone */}
+        <div className="absolute bottom-4 left-0 right-0 px-4 flex justify-center pointer-events-auto">
+          <div className="bg-slate-900/95 backdrop-blur-md border border-slate-800 rounded-xl shadow-2xl p-4 space-y-2.5 max-w-md w-full">
             <div className="flex items-start gap-3">
-              <div className="bg-primary/10 p-2 rounded-lg shrink-0 text-primary border border-primary/20">
+              <div className="bg-blue-500/10 p-2 rounded-lg shrink-0 text-blue-400 border border-blue-500/20">
                 <CategoryIcon className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
@@ -304,9 +324,9 @@ export default function ARNavigationOverlay({
               </span>
             </div>
 
-            <div className="space-y-1 text-xs text-slate-300 pt-1 border-t border-slate-800/80">
-              <div className="flex items-start gap-1.5 text-slate-300 truncate">
-                <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-primary" />
+            <div className="pt-1 border-t border-slate-800/80">
+              <div className="flex items-center gap-1.5 text-xs text-slate-300 truncate">
+                <MapPin className="w-3.5 h-3.5 shrink-0 text-blue-400" />
                 <span className="truncate">{issue.address}</span>
               </div>
             </div>
@@ -317,21 +337,21 @@ export default function ARNavigationOverlay({
         <button
           onClick={handleClose}
           className="absolute top-4 right-4 bg-slate-900/90 hover:bg-slate-800 text-white p-2.5 rounded-full backdrop-blur-md border border-slate-700 shadow-xl pointer-events-auto transition-colors z-50 flex items-center justify-center"
-          title="Close Camera"
-          aria-label="Close Camera"
+          title="Exit AR View"
+          aria-label="Exit AR View"
         >
           <X className="w-5 h-5 text-white" />
         </button>
 
-        {/* Compass indicator - Bottom Left */}
-        <div className="absolute bottom-36 left-4 bg-slate-900/90 backdrop-blur-md px-3 py-2 rounded-lg border border-slate-800">
+        {/* Compass Heading Indicator - Bottom Left */}
+        <div className="absolute bottom-24 left-4 bg-slate-900/90 backdrop-blur-md px-3 py-2 rounded-lg border border-slate-800">
           <div className="flex items-center gap-2">
             <Navigation2 
-              className="w-4 h-4 text-blue-400 transition-transform duration-300"
+              className="w-4 h-4 text-blue-400 transition-transform duration-200"
               style={{ transform: `rotate(${-deviceOrientation}deg)` }}
             />
             <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider">Heading</p>
+              <p className="text-[9px] text-slate-400 uppercase tracking-wider">Compass</p>
               <p className="text-xs font-bold text-white">{Math.round(deviceOrientation)}°</p>
             </div>
           </div>

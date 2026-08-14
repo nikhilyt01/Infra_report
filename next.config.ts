@@ -2,7 +2,24 @@ import { NextConfig } from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
 import withPWA from 'next-pwa';
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'maps.googleapis.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'mt*.google.com',
+      },
+    ],
+  },
+};
 
 const withNextIntl = createNextIntlPlugin();
 
@@ -10,7 +27,7 @@ const pwaConfig = withPWA({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: false, // PWA always enabled
+  disable: process.env.NODE_ENV === 'development', // Clean HMR in dev, active PWA in production
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
@@ -18,10 +35,10 @@ const pwaConfig = withPWA({
       options: {
         cacheName: 'google-fonts',
         expiration: {
-          maxEntries: 4,
-          maxAgeSeconds: 365 * 24 * 60 * 60 // 1 year
-        }
-      }
+          maxEntries: 8,
+          maxAgeSeconds: 365 * 24 * 60 * 60, // 1 year
+        },
+      },
     },
     {
       urlPattern: /\.(?:eot|otf|ttc|ttf|woff|woff2|font.css)$/i,
@@ -29,10 +46,10 @@ const pwaConfig = withPWA({
       options: {
         cacheName: 'static-font-assets',
         expiration: {
-          maxEntries: 4,
-          maxAgeSeconds: 7 * 24 * 60 * 60 // 7 days
-        }
-      }
+          maxEntries: 8,
+          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+        },
+      },
     },
     {
       urlPattern: /\.(?:jpg|jpeg|gif|png|svg|ico|webp)$/i,
@@ -41,45 +58,11 @@ const pwaConfig = withPWA({
         cacheName: 'static-image-assets',
         expiration: {
           maxEntries: 64,
-          maxAgeSeconds: 24 * 60 * 60 // 24 hours
-        }
-      }
-    },
-    {
-      urlPattern: /\.(?:js)$/i,
-      handler: 'StaleWhileRevalidate',
-      options: {
-        cacheName: 'static-js-assets',
-        expiration: {
-          maxEntries: 32,
-          maxAgeSeconds: 24 * 60 * 60 // 24 hours
-        }
-      }
-    },
-    {
-      urlPattern: /\.(?:css|less)$/i,
-      handler: 'StaleWhileRevalidate',
-      options: {
-        cacheName: 'static-style-assets',
-        expiration: {
-          maxEntries: 32,
-          maxAgeSeconds: 24 * 60 * 60 // 24 hours
-        }
-      }
-    },
-    {
-      urlPattern: /\/api\/.*/i,
-      handler: 'NetworkFirst',
-      options: {
-        cacheName: 'api-cache',
-        expiration: {
-          maxEntries: 16,
-          maxAgeSeconds: 5 * 60 // 5 minutes
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
         },
-        networkTimeoutSeconds: 10
-      }
-    }
-  ]
+      },
+    },
+  ],
 });
 
 export default withNextIntl(pwaConfig(nextConfig));

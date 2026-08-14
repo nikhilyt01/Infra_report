@@ -21,7 +21,8 @@ import {
   Info, Satellite, Building, Moon, Sun, Trees, 
   Compass, Construction, Lightbulb, Droplet, 
   Droplets, Trash2, Milestone, Wrench, Plus, Minus,
-  Maximize2, Minimize2, Navigation
+  Maximize2, Minimize2, Navigation, ChevronDown, ChevronUp,
+  X, SlidersHorizontal
 } from 'lucide-react';
 
 interface Report {
@@ -261,6 +262,10 @@ export default function HeatMapView({ initialViewState }: HeatMapViewProps) {
   const [showMarkers, setShowMarkers] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [isControlsOpen, setIsControlsOpen] = useState(false);
+  const [styleOpen, setStyleOpen] = useState(true);
+  const [layersOpen, setLayersOpen] = useState(true);
+  const [legendOpen, setLegendOpen] = useState(true);
 
   const defaultCenter = {
     lat: initialViewState?.latitude || 12.9716,
@@ -1010,16 +1015,59 @@ export default function HeatMapView({ initialViewState }: HeatMapViewProps) {
         </div>
       )}
 
+      {/* Mobile Floating Toggle Button */}
+      <div className="absolute top-3 left-3 z-20 md:hidden pointer-events-auto">
+        <button
+          onClick={() => setIsControlsOpen(!isControlsOpen)}
+          className="px-3 py-2 bg-slate-900/95 hover:bg-slate-800 text-white rounded-xl border border-slate-700/80 shadow-xl flex items-center gap-2 text-xs font-semibold backdrop-blur-md transition-all active:scale-95"
+          aria-label="Toggle map layers and styles"
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
+          <span>{isControlsOpen ? 'Hide Controls' : 'Layers & Legend'}</span>
+          {isControlsOpen ? (
+            <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+          ) : (
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+          )}
+        </button>
+      </div>
+
       {/* Left Control Panel */}
-      <div className="absolute top-3 left-3 bottom-3 w-64 sm:w-72 z-20 pointer-events-none">
-        <div className="h-full max-h-full overflow-y-auto overflow-x-hidden pointer-events-auto pr-1.5 space-y-2.5">
-          {/* Map Style Selector */}
+      <div className={`absolute left-3 z-20 pointer-events-none transition-all duration-300 w-64 sm:w-72 max-w-[calc(100vw-1.5rem)] bottom-3 ${
+        isControlsOpen ? 'top-14 block' : 'top-3 hidden md:block'
+      }`}>
+        <div className="h-full max-h-full overflow-y-auto overflow-x-hidden pointer-events-auto pr-1.5 space-y-2">
+          {/* Mobile Panel Header with Close Button */}
+          {isControlsOpen && (
+            <div className="flex items-center justify-between p-2.5 bg-slate-900/95 backdrop-blur-md border border-slate-800 rounded-xl shadow-lg md:hidden">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-blue-400" />
+                Map Controls
+              </span>
+              <button
+                onClick={() => setIsControlsOpen(false)}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Map Style Selector Section */}
           <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3 shadow-lg">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-white font-semibold flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-400">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setStyleOpen(!styleOpen)}
+                className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold text-slate-300 hover:text-white transition-colors flex-1 text-left"
+              >
                 <MapIcon className="w-3.5 h-3.5 text-blue-400" />
-                Map Style
-              </h3>
+                <span>Map Style</span>
+                {styleOpen ? (
+                  <ChevronUp className="w-3 h-3 text-slate-400 ml-auto mr-2" />
+                ) : (
+                  <ChevronDown className="w-3 h-3 text-slate-400 ml-auto mr-2" />
+                )}
+              </button>
               <button
                 onClick={resetView}
                 className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
@@ -1028,101 +1076,133 @@ export default function HeatMapView({ initialViewState }: HeatMapViewProps) {
                 <RotateCcw className="w-3 h-3" />
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-1">
-              {(['satellite', 'street', 'dark', 'light', 'outdoors', 'navigation'] as MapStyleKey[]).map((style) => (
-                <button
-                  key={style}
-                  onClick={() => setMapStyle(style)}
-                  className={`px-1.5 py-1.5 rounded-md text-[11px] font-medium transition-all flex flex-col items-center gap-1 justify-center ${
-                    mapStyle === style
-                      ? 'bg-blue-600 text-white shadow-xs font-semibold'
-                      : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                  }`}
-                >
-                  {style === 'satellite' && <Satellite className="w-3 h-3" />} 
-                  {style === 'street' && <Building className="w-3 h-3" />} 
-                  {style === 'dark' && <Moon className="w-3 h-3" />} 
-                  {style === 'light' && <Sun className="w-3 h-3" />} 
-                  {style === 'outdoors' && <Trees className="w-3 h-3" />} 
-                  {style === 'navigation' && <Compass className="w-3 h-3" />} 
-                  <span className="capitalize text-[10px] leading-none">{style}</span>
-                </button>
-              ))}
-            </div>
+
+            {styleOpen && (
+              <div className="grid grid-cols-3 gap-1 pt-2.5 animate-in fade-in-50 duration-200">
+                {(['satellite', 'street', 'dark', 'light', 'outdoors', 'navigation'] as MapStyleKey[]).map((style) => (
+                  <button
+                    key={style}
+                    onClick={() => setMapStyle(style)}
+                    className={`px-1.5 py-1.5 rounded-md text-[11px] font-medium transition-all flex flex-col items-center gap-1 justify-center ${
+                      mapStyle === style
+                        ? 'bg-blue-600 text-white shadow-xs font-semibold'
+                        : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    }`}
+                  >
+                    {style === 'satellite' && <Satellite className="w-3 h-3" />} 
+                    {style === 'street' && <Building className="w-3 h-3" />} 
+                    {style === 'dark' && <Moon className="w-3 h-3" />} 
+                    {style === 'light' && <Sun className="w-3 h-3" />} 
+                    {style === 'outdoors' && <Trees className="w-3 h-3" />} 
+                    {style === 'navigation' && <Compass className="w-3 h-3" />} 
+                    <span className="capitalize text-[10px] leading-none">{style}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Layer Controls & Live Statistics */}
-          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3 shadow-lg space-y-2.5">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <h3 className="text-white font-semibold flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-400">
+          {/* Active Layers & Live Statistics Section */}
+          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3 shadow-lg space-y-2">
+            <button
+              onClick={() => setLayersOpen(!layersOpen)}
+              className="flex items-center justify-between w-full text-[11px] uppercase tracking-wider font-semibold text-slate-300 hover:text-white transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5 text-blue-400" />
-                Active Layers
-              </h3>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={showHeatmap}
-                    onChange={(e) => setShowHeatmap(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 accent-blue-600 cursor-pointer"
-                  />
-                  <span>Heatmap</span>
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={showMarkers}
-                    onChange={(e) => setShowMarkers(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 accent-blue-600 cursor-pointer"
-                  />
-                  <span>Markers</span>
-                </label>
-              </div>
-            </div>
+                <span>Active Layers & Stats</span>
+              </span>
+              {layersOpen ? (
+                <ChevronUp className="w-3 h-3 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-3 h-3 text-slate-400" />
+              )}
+            </button>
 
-            {/* Compact Statistics Grid */}
-            <div className="grid grid-cols-3 gap-1.5 pt-0.5">
-              <div className="p-1.5 bg-slate-800/60 rounded-lg text-center">
-                <p className="text-[10px] text-slate-400">Total</p>
-                <p className="text-sm font-bold text-white leading-tight">{reports.length}</p>
+            {layersOpen && (
+              <div className="space-y-2 pt-1 animate-in fade-in-50 duration-200">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <span className="text-[11px] text-slate-400">Toggle Layers</span>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={showHeatmap}
+                        onChange={(e) => setShowHeatmap(e.target.checked)}
+                        className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 accent-blue-600 cursor-pointer"
+                      />
+                      <span>Heatmap</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={showMarkers}
+                        onChange={(e) => setShowMarkers(e.target.checked)}
+                        className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 accent-blue-600 cursor-pointer"
+                      />
+                      <span>Markers</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Compact Statistics Grid */}
+                <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+                  <div className="p-1.5 bg-slate-800/60 rounded-lg text-center">
+                    <p className="text-[10px] text-slate-400">Total</p>
+                    <p className="text-sm font-bold text-white leading-tight">{reports.length}</p>
+                  </div>
+                  <div className="p-1.5 bg-slate-800/60 rounded-lg text-center">
+                    <p className="text-[10px] text-slate-400">Resolved</p>
+                    <p className="text-sm font-bold text-emerald-400 leading-tight">
+                      {reports.filter(r => r.status === 'resolved').length}
+                    </p>
+                  </div>
+                  <div className="p-1.5 bg-slate-800/60 rounded-lg text-center">
+                    <p className="text-[10px] text-slate-400">Pending</p>
+                    <p className="text-sm font-bold text-amber-400 leading-tight">
+                      {reports.filter(r => r.status === 'submitted' || r.status === 'under_review' || r.status === 'in_progress').length}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="p-1.5 bg-slate-800/60 rounded-lg text-center">
-                <p className="text-[10px] text-slate-400">Resolved</p>
-                <p className="text-sm font-bold text-emerald-400 leading-tight">
-                  {reports.filter(r => r.status === 'resolved').length}
-                </p>
-              </div>
-              <div className="p-1.5 bg-slate-800/60 rounded-lg text-center">
-                <p className="text-[10px] text-slate-400">Pending</p>
-                <p className="text-sm font-bold text-amber-400 leading-tight">
-                  {reports.filter(r => r.status === 'submitted' || r.status === 'under_review' || r.status === 'in_progress').length}
-                </p>
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Status Legend (Compact 2x2 Grid) */}
+          {/* Status Legend Section */}
           <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3 shadow-lg">
-            <h3 className="text-white font-semibold mb-2 flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-400">
-              <Info className="w-3.5 h-3.5 text-blue-400" />
-              Status Legend
-            </h3>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {[
-                { status: 'submitted', label: 'Submitted', color: '#3b82f6' },
-                { status: 'under_review', label: 'Under Review', color: '#eab308' },
-                { status: 'in_progress', label: 'In Progress', color: '#8b5cf6' },
-                { status: 'resolved', label: 'Resolved', color: '#22c55e' },
-              ].map((item) => (
-                <div key={item.status} className="flex items-center gap-1.5">
-                  <div 
-                    className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs" 
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <span className="text-slate-300 text-[11px] truncate font-medium">{item.label}</span>
-                </div>
-              ))}
-            </div>
+            <button
+              onClick={() => setLegendOpen(!legendOpen)}
+              className="flex items-center justify-between w-full text-[11px] uppercase tracking-wider font-semibold text-slate-300 hover:text-white transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 text-blue-400" />
+                <span>Status Legend</span>
+              </span>
+              {legendOpen ? (
+                <ChevronUp className="w-3 h-3 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-3 h-3 text-slate-400" />
+              )}
+            </button>
+
+            {legendOpen && (
+              <div className="grid grid-cols-2 gap-2 text-xs pt-2 animate-in fade-in-50 duration-200">
+                {[
+                  { status: 'submitted', label: 'Submitted', color: '#3b82f6' },
+                  { status: 'under_review', label: 'Under Review', color: '#eab308' },
+                  { status: 'in_progress', label: 'In Progress', color: '#8b5cf6' },
+                  { status: 'resolved', label: 'Resolved', color: '#22c55e' },
+                ].map((item) => (
+                  <div key={item.status} className="flex items-center gap-1.5">
+                    <div 
+                      className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs" 
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span className="text-slate-300 text-[11px] truncate font-medium">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

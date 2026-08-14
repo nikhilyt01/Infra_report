@@ -553,21 +553,21 @@ export default function NewReportPage() {
             </CardContent>
           </Card>
 
-          {/* Section 3: Photo Evidence */}
+          {/* Section 3: Live Photo Evidence */}
           <Card className="border border-border/80 shadow-xs">
             <CardHeader className="pb-4 border-b border-border/60">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
                     <Camera className="w-4 h-4 text-primary" />
-                    <span>3. Photo Evidence</span>
+                    <span>3. Live Photo Evidence (Camera Only)</span>
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Attach photos from your camera or gallery (up to 10 photos)
+                    Capture real-time on-site photos with your device camera (Max 10 photos)
                   </CardDescription>
                 </div>
                 <span className="text-xs font-semibold text-muted-foreground">
-                  {selectedImages.length}/10 uploaded
+                  {selectedImages.length}/10 captured
                 </span>
               </div>
             </CardHeader>
@@ -611,38 +611,18 @@ export default function NewReportPage() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Open Webcam Button */}
+                <div>
                   <Button
                     type="button"
                     variant="outline"
                     onClick={startCamera}
                     disabled={selectedImages.length >= 10}
-                    className="h-20 border border-dashed border-border hover:border-primary hover:bg-secondary/50 flex flex-col items-center justify-center gap-1.5 transition-all"
+                    className="w-full h-20 border border-dashed border-border hover:border-primary hover:bg-secondary/50 flex flex-col items-center justify-center gap-1.5 transition-all rounded-xl"
                   >
-                    <Camera className="w-5 h-5 text-primary" />
-                    <span className="text-xs font-medium text-foreground">Take Photo with Camera</span>
+                    <Camera className="w-6 h-6 text-primary" />
+                    <span className="text-xs font-semibold text-foreground">Open Camera to Take Live Photo</span>
+                    <span className="text-[10px] text-muted-foreground">Photos must be captured live on site</span>
                   </Button>
-
-                  {/* Upload Image File Button */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={selectedImages.length >= 10}
-                    className="h-20 border border-dashed border-border hover:border-primary hover:bg-secondary/50 flex flex-col items-center justify-center gap-1.5 transition-all"
-                  >
-                    <UploadCloud className="w-5 h-5 text-primary" />
-                    <span className="text-xs font-medium text-foreground">Upload from Device</span>
-                  </Button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
                 </div>
               )}
 

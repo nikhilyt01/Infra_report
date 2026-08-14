@@ -348,117 +348,211 @@ export default function ManagerDashboard() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-secondary/40 border-b border-border/60 text-muted-foreground font-semibold uppercase text-[11px] tracking-wider">
-                    <tr>
-                      <th className="py-3 px-4">Issue Details</th>
-                      <th className="py-3 px-3">Status</th>
-                      <th className="py-3 px-3">Priority</th>
-                      <th className="py-3 px-3">Ward / Area</th>
-                      <th className="py-3 px-3">Reporter</th>
-                      <th className="py-3 px-3">Approval</th>
-                      <th className="py-3 px-3">Votes</th>
-                      <th className="py-3 px-4 text-right">Lifecycle Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/60">
-                    {reports.map((report) => (
-                      <tr 
-                        key={report._id}
-                        onClick={() => router.push(`/${locale}/reports/${report._id}`)}
-                        className="hover:bg-secondary/40 transition-colors cursor-pointer group"
-                      >
-                        {/* Title & Progress */}
-                        <td className="py-3.5 px-4 max-w-xs">
-                          <p className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                            {report.title}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                            {report.address}
-                          </p>
-                          <div className="mt-2 w-32">
-                            <IssueProgressBar status={report.status} showLabels={false} size="sm" />
-                          </div>
-                        </td>
+              <div>
+                {/* Desktop Data Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left text-xs min-w-[900px]">
+                    <thead className="bg-secondary/40 border-b border-border/60 text-muted-foreground font-semibold uppercase text-[11px] tracking-wider">
+                      <tr>
+                        <th className="py-3 px-4">Issue Details</th>
+                        <th className="py-3 px-3">Status</th>
+                        <th className="py-3 px-3">Priority</th>
+                        <th className="py-3 px-3">Ward / Area</th>
+                        <th className="py-3 px-3">Reporter</th>
+                        <th className="py-3 px-3">Approval</th>
+                        <th className="py-3 px-3">Votes</th>
+                        <th className="py-3 px-4 text-right">Lifecycle Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/60">
+                      {reports.map((report) => (
+                        <tr 
+                          key={report._id}
+                          onClick={() => router.push(`/${locale}/reports/${report._id}`)}
+                          className="hover:bg-secondary/40 transition-colors cursor-pointer group"
+                        >
+                          {/* Title & Progress */}
+                          <td className="py-3.5 px-4 max-w-xs">
+                            <p className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                              {report.title}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                              {report.address}
+                            </p>
+                            <div className="mt-2 w-32">
+                              <IssueProgressBar status={report.status} showLabels={false} size="sm" />
+                            </div>
+                          </td>
 
-                        {/* Status */}
-                        <td className="py-3.5 px-3">
-                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${getStatusBadge(report.status)}`}>
+                          {/* Status */}
+                          <td className="py-3.5 px-3 whitespace-nowrap">
+                            <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${getStatusBadge(report.status)}`}>
+                              {report.status.replace('_', ' ')}
+                            </span>
+                          </td>
+
+                          {/* Priority */}
+                          <td className="py-3.5 px-3 whitespace-nowrap">
+                            <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border uppercase ${getPriorityBadge(report.priority)}`}>
+                              {report.priority}
+                            </span>
+                          </td>
+
+                          {/* Area */}
+                          <td className="py-3.5 px-3 text-muted-foreground font-medium whitespace-nowrap">
+                            {report.area || 'City Area'}
+                          </td>
+
+                          {/* Reported By */}
+                          <td className="py-3.5 px-3 text-muted-foreground whitespace-nowrap">
+                            {report.reportedBy?.name || 'Citizen'}
+                          </td>
+
+                          {/* Approved By */}
+                          <td className="py-3.5 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            {report.approvedBy ? (
+                              <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 text-xs">
+                                <Check className="w-3.5 h-3.5" />
+                                <span>{report.approvedBy.name}</span>
+                              </span>
+                            ) : (
+                              <Button
+                                onClick={() => handleApproveReport(report._id)}
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-[11px] px-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                              >
+                                Approve
+                              </Button>
+                            )}
+                          </td>
+
+                          {/* Votes */}
+                          <td className="py-3.5 px-3 text-muted-foreground font-semibold whitespace-nowrap">
+                            👍 {report.upvotes || 0}
+                          </td>
+
+                          {/* Action Select */}
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-2">
+                              <Select
+                                value={report.status}
+                                onChange={(e) => handleStatusChange(report._id, e.target.value)}
+                                className="h-8 text-xs w-36 bg-card border-border/80"
+                              >
+                                <option value="submitted">Submitted</option>
+                                <option value="under_review">Under Review</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="resolved">Resolved</option>
+                                <option value="closed">Closed</option>
+                                <option value="rejected">Rejected</option>
+                              </Select>
+
+                              <Link 
+                                href={`/${locale}/reports/${report._id}`}
+                                className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                                title="Open Ticket Details"
+                              >
+                                <ArrowUpRight className="w-4 h-4" />
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Responsive Cards View */}
+                <div className="block md:hidden divide-y divide-border/60">
+                  {reports.map((report) => (
+                    <div 
+                      key={report._id}
+                      onClick={() => router.push(`/${locale}/reports/${report._id}`)}
+                      className="p-4 space-y-3 hover:bg-secondary/30 transition-colors cursor-pointer"
+                    >
+                      {/* Top Row: Title & Badges */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="font-semibold text-sm text-foreground hover:text-primary transition-colors leading-tight">
+                            {report.title}
+                          </h4>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border shrink-0 ${getStatusBadge(report.status)}`}>
                             {report.status.replace('_', ' ')}
                           </span>
-                        </td>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-1">
+                          {report.address}
+                        </p>
+                      </div>
 
-                        {/* Priority */}
-                        <td className="py-3.5 px-3">
-                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border uppercase ${getPriorityBadge(report.priority)}`}>
-                            {report.priority}
-                          </span>
-                        </td>
+                      {/* Progress Bar */}
+                      <div className="w-full">
+                        <IssueProgressBar status={report.status} showLabels={false} size="sm" />
+                      </div>
 
-                        {/* Area */}
-                        <td className="py-3.5 px-3 text-muted-foreground font-medium">
-                          {report.area || 'City Area'}
-                        </td>
+                      {/* Details Row: Area, Priority, Reporter */}
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground pt-1">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border uppercase ${getPriorityBadge(report.priority)}`}>
+                          {report.priority}
+                        </span>
+                        <span className="bg-secondary/80 px-2 py-0.5 rounded text-[11px] font-medium text-foreground">
+                          {report.area || 'Ward Area'}
+                        </span>
+                        <span>•</span>
+                        <span className="text-[11px] truncate">By {report.reportedBy?.name || 'Citizen'}</span>
+                        <span>•</span>
+                        <span className="text-[11px] font-semibold text-foreground">👍 {report.upvotes || 0}</span>
+                      </div>
 
-                        {/* Reported By */}
-                        <td className="py-3.5 px-3 text-muted-foreground">
-                          {report.reportedBy?.name || 'Citizen'}
-                        </td>
-
-                        {/* Approved By */}
-                        <td className="py-3.5 px-3" onClick={(e) => e.stopPropagation()}>
+                      {/* Actions Bar */}
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40" onClick={(e) => e.stopPropagation()}>
+                        {/* Approval State */}
+                        <div>
                           {report.approvedBy ? (
-                            <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                            <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 text-xs">
                               <Check className="w-3.5 h-3.5" />
-                              <span>{report.approvedBy.name}</span>
+                              <span>Approved</span>
                             </span>
                           ) : (
                             <Button
                               onClick={() => handleApproveReport(report._id)}
                               variant="outline"
                               size="sm"
-                              className="h-7 text-[11px] px-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                              className="h-7 text-xs px-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
                             >
                               Approve
                             </Button>
                           )}
-                        </td>
+                        </div>
 
-                        {/* Votes */}
-                        <td className="py-3.5 px-3 text-muted-foreground font-semibold">
-                          👍 {report.upvotes || 0}
-                        </td>
+                        {/* Status Select & View */}
+                        <div className="flex items-center gap-1.5">
+                          <Select
+                            value={report.status}
+                            onChange={(e) => handleStatusChange(report._id, e.target.value)}
+                            className="h-8 text-xs w-32 bg-card border-border/80"
+                          >
+                            <option value="submitted">Submitted</option>
+                            <option value="under_review">Under Review</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="closed">Closed</option>
+                            <option value="rejected">Rejected</option>
+                          </Select>
 
-                        {/* Action Select */}
-                        <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-2">
-                            <Select
-                              value={report.status}
-                              onChange={(e) => handleStatusChange(report._id, e.target.value)}
-                              className="h-8 text-xs w-36 bg-card border-border/80"
-                            >
-                              <option value="submitted">Submitted</option>
-                              <option value="under_review">Under Review</option>
-                              <option value="in_progress">In Progress</option>
-                              <option value="resolved">Resolved</option>
-                              <option value="closed">Closed</option>
-                              <option value="rejected">Rejected</option>
-                            </Select>
-
-                            <Link 
-                              href={`/${locale}/reports/${report._id}`}
-                              className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                              title="Open Ticket Details"
-                            >
-                              <ArrowUpRight className="w-4 h-4" />
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          <Link 
+                            href={`/${locale}/reports/${report._id}`}
+                            className="p-2 rounded-md bg-secondary/80 hover:bg-secondary text-foreground transition-colors flex items-center justify-center"
+                            title="Open Ticket"
+                          >
+                            <ArrowUpRight className="w-4 h-4" />
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
