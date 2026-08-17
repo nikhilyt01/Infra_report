@@ -364,7 +364,7 @@ export default function NearbyIssuesPage() {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            {userLocation && (
+                            {isVeryClose && userLocation && (
                               <Button
                                 onClick={() => setSelectedIssue(issue)}
                                 size="sm"
