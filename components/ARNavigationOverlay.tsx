@@ -47,7 +47,6 @@ export default function ARNavigationOverlay({
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [deviceOrientation, setDeviceOrientation] = useState<number>(0);
-  const [compassHeading, setCompassHeading] = useState<number | null>(null);
   const [needsPermission, setNeedsPermission] = useState<boolean>(false);
 
   // Bulletproof camera stop function
@@ -76,20 +75,25 @@ export default function ARNavigationOverlay({
     onClose();
   }, [stopCamera, onClose]);
 
+  // Smoothed orientation update using Low-Pass Filtering (Exponential Moving Average)
   const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
     const eventWithWebkit = event as DeviceOrientationEventWithWebkit;
     
     if (event.alpha !== null) {
-      let heading = event.alpha;
+      let rawHeading = event.alpha;
       
       if (eventWithWebkit.webkitCompassHeading !== undefined) {
-        heading = eventWithWebkit.webkitCompassHeading;
+        rawHeading = eventWithWebkit.webkitCompassHeading;
       } else {
-        heading = 360 - event.alpha;
+        rawHeading = 360 - event.alpha;
       }
-      
-      setDeviceOrientation(heading);
-      setCompassHeading(heading);
+
+      setDeviceOrientation((prevHeading) => {
+        // Calculate shortest angle difference (-180 to 180) to handle 0/360 boundary cleanly
+        const diff = ((rawHeading - prevHeading + 540) % 360) - 180;
+        // Alpha factor 0.25 smooths out sensor jitter while keeping real-time responsiveness
+        return (prevHeading + diff * 0.25 + 360) % 360;
+      });
     }
   }, []);
 
@@ -262,7 +266,7 @@ export default function ARNavigationOverlay({
               <div
                 style={{ 
                   transform: `rotate(${relativeAngle}deg)`,
-                  transition: 'transform 0.2s ease-out'
+                  transition: 'transform 0.3s ease-out'
                 }}
                 className="relative"
               >
@@ -347,7 +351,7 @@ export default function ARNavigationOverlay({
         <div className="absolute bottom-24 left-4 bg-slate-900/90 backdrop-blur-md px-3 py-2 rounded-lg border border-slate-800">
           <div className="flex items-center gap-2">
             <Navigation2 
-              className="w-4 h-4 text-blue-400 transition-transform duration-200"
+              className="w-4 h-4 text-blue-400 transition-transform duration-300"
               style={{ transform: `rotate(${-deviceOrientation}deg)` }}
             />
             <div>
