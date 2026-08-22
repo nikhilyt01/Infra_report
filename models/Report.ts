@@ -1,4 +1,8 @@
 import mongoose, { Schema, Model, models } from 'mongoose';
+// Imported (and used as `ref` below) so the User model is always registered
+// before any `.populate()` of the reporter/assignee/approver paths. Routes that
+// populate those paths import only this model, not User.
+import User from './User';
 
 export type ReportStatus = 'submitted' | 'under_review' | 'in_progress' | 'resolved' | 'closed' | 'rejected';
 
@@ -125,19 +129,23 @@ const ReportSchema = new Schema<IReport>(
     },
     reportedBy: {
       type: String,
+      ref: User,
       required: [true, 'Reporter is required'],
     },
     assignedTo: {
       type: String,
+      ref: User,
     },
     approvedBy: {
       type: String,
+      ref: User,
     },
     approvedAt: {
       type: Date,
     },
     initiatedBy: {
       type: String,
+      ref: User,
     },
     initiatedAt: {
       type: Date,
