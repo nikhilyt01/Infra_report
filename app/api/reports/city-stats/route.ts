@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Get user's reports to extract their city
-    const userReports = await Report.find({ reportedBy: currentUser.id })
+    const userReports = await Report.find({ reportedBy: currentUser.userId })
       .sort({ createdAt: -1 })
       .limit(1)
       .select('address area');
