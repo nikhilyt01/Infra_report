@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
     
     // Build query - only get reports created by current user
-    const query: any = { reportedBy: user.userId };
+    const query: any = { reportedBy: user.Id };
     if (status && status !== 'all') {
       query.status = status;
     }
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     
     // Get status counts for user's reports
     const statusCounts = await Report.aggregate([
-      { $match: { reportedBy: user.userId } },
+      { $match: { reportedBy: user.id } },
       { $group: { _id: '$status', count: { $sum: 1 } } }
     ]);
     

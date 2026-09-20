@@ -59,7 +59,7 @@ interface Report {
   };
   viewCount: number;
   upvotes: number;
-  upvotedBy: string[];
+  upvoted?: boolean; // Whether the signed-in viewer has upvoted this report
   resolvedAt?: string;
   resolutionNote?: string;
   resolutionImages?: string[];
@@ -160,6 +160,9 @@ export default function ReportDetailPage() {
 
       if (data.success) {
         setReport(data.data);
+        // Hydrate the button from the server, otherwise a reload always shows
+        // "not upvoted" and the next click would silently remove your vote.
+        setUpvoted(Boolean(data.data.upvoted));
       } else {
         setError(data.error || 'Report ticket not found');
       }
@@ -176,10 +179,23 @@ export default function ReportDetailPage() {
     setUpvoteLoading(true);
     try {
       const res = await fetch(`/api/reports/${report._id}/upvote`, { method: 'POST' });
+
+      // Upvoting requires an account — send guests to sign in.
+      if (res.status === 401) {
+        router.push(`/${locale}/login`);
+        return;
+      }
+
       const data = await res.json();
       if (data.success) {
-        setReport(prev => prev ? { ...prev, upvotes: (prev.upvotes || 0) + (upvoted ? -1 : 1) } : null);
-        setUpvoted(!upvoted);
+        // Trust the server's count and priority rather than adjusting by ±1,
+        // so the UI can't drift from the database.
+        setReport(prev =>
+          prev
+            ? { ...prev, upvotes: data.data.upvotes, priority: data.data.priority }
+            : null
+        );
+        setUpvoted(data.data.upvoted);
       }
     } catch (e) {
       console.error('Upvote error:', e);

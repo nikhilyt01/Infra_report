@@ -199,6 +199,7 @@ ReportSchema.index({ reportedBy: 1, createdAt: -1 }); // User reports
 ReportSchema.index({ assignedTo: 1, status: 1 }); // Manager assignments
 ReportSchema.index({ category: 1, status: 1 }); // Category analytics
 ReportSchema.index({ municipalityId: 1, status: 1 }); // Municipality analytics
+ReportSchema.index({ upvotes: -1, createdAt: -1 }); // Sort by community demand
 
 // Prevent model recompilation in development
 const Report: Model<IReport> = models.Report || mongoose.model<IReport>('Report', ReportSchema);
