@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Label } from '@/components/ui/Label';
-import { Plus, Search, Filter, MapPin, Calendar, ThumbsUp, ArrowUpRight, ChevronDown, ChevronUp, Ban } from 'lucide-react';
+import { Plus, Search, Filter, MapPin, Calendar, ThumbsUp, ArrowUpRight, ChevronDown, ChevronUp, Ban, CheckCircle } from 'lucide-react';
 
 interface Report {
   _id: string;
@@ -28,6 +28,8 @@ interface Report {
   createdAt: string;
   upvotes: number;
   latestStatusNote?: string;
+  resolutionImages?: string[];
+  resolvedAt?: string;
 }
 
 export default function ReportsPage() {
@@ -304,6 +306,32 @@ export default function ReportsPage() {
                         {reasonExpanded && (
                           <div className="mt-1.5 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-700 dark:text-rose-300 leading-relaxed">
                             {report.latestStatusNote}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Latest status note (non-rejected) */}
+                    {!isRejected && report.latestStatusNote && (
+                      <p className="text-[11px] text-muted-foreground leading-relaxed mt-1 line-clamp-2 italic">
+                        &ldquo;{report.latestStatusNote}&rdquo;
+                      </p>
+                    )}
+
+                    {/* Resolved badge with thumbnail */}
+                    {report.status === 'resolved' && (
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/20">
+                          <CheckCircle className="w-3 h-3" />
+                          Resolved
+                        </span>
+                        {report.resolutionImages && report.resolutionImages.length > 0 && (
+                          <div className="w-8 h-8 rounded-md overflow-hidden border border-emerald-500/30 shrink-0">
+                            <img
+                              src={report.resolutionImages[0]}
+                              alt="After"
+                              className="w-full h-full object-cover"
+                            />
                           </div>
                         )}
                       </div>

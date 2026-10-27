@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Report from '@/models/Report';
 import ReportHistory from '@/models/ReportHistory';
+import User from '@/models/User';
 
 // GET /api/reports/[id]/history - Retrieve complete audit trail history for a report
 export async function GET(
@@ -28,7 +29,71 @@ export async function GET(
     const rep: any = report;
 
     // Fetch existing immutable history entries, oldest first for chronological timeline
-    const history = await ReportHistory.find({ reportId: id }).sort({ createdAt: 1, timestamp: 1 });
+    const rawHistory = await ReportHistory.find({ reportId: id }).sort({ createdAt: 1, timestamp: 1 });
+
+    // Collect user IDs needing lookup
+    const userIdsToFetch = new Set<string>();
+    rawHistory.forEach((h: any) => {
+      const uId = h.actorId || h.performedBy;
+      if (uId && typeof uId === 'string' && uId.length === 24) {
+        userIdsToFetch.add(uId);
+      }
+    });
+
+    const foundUsers = userIdsToFetch.size > 0
+      ? await User.find({ _id: { $in: Array.from(userIdsToFetch) } }).select('name email role')
+      : [];
+    const userMap = new Map<string, any>();
+    foundUsers.forEach((u: any) => userMap.set(String(u._id), u));
+
+    // Normalize and enrich each history entry
+    const history = rawHistory.map((h: any) => {
+      const entry = h.toObject ? h.toObject() : { ...h };
+      const actorUser = userMap.get(String(entry.actorId || entry.performedBy || ''));
+
+      const fromStatus = entry.fromStatus !== undefined ? entry.fromStatus : entry.previousValue;
+      const toStatus = entry.toStatus || entry.newValue;
+      const note = entry.note || entry.comment;
+      
+      let actorName = entry.actorName;
+      let actorRole = entry.actorRole;
+
+      if (!actorName && actorUser) {
+        actorName = actorUser.name || actorUser.email;
+      }
+      if (!actorRole && actorUser) {
+        actorRole = actorUser.role;
+      }
+
+      // Fallbacks if user details are missing
+      if (!actorName || !actorRole) {
+        if (entry.actionType === 'created') {
+          actorName = actorName || rep.reportedBy?.name || 'Citizen';
+          actorRole = actorRole || 'user';
+        } else if (entry.actionType === 'priority_changed' && (entry.comment?.includes('demand') || entry.comment?.includes('upvote'))) {
+          actorName = actorName || 'Community Signal';
+          actorRole = actorRole || 'system';
+        } else {
+          actorName = actorName || rep.approvedBy?.name || 'Municipal Officer';
+          actorRole = actorRole || 'manager';
+        }
+      }
+
+      let resImages = entry.resolutionImages;
+      if (entry.actionType === 'resolved' && (!resImages || resImages.length === 0)) {
+        resImages = rep.resolutionImages || [];
+      }
+
+      return {
+        ...entry,
+        fromStatus,
+        toStatus,
+        note,
+        actorName,
+        actorRole,
+        resolutionImages: resImages,
+      };
+    });
 
     // Backward compatibility: If no history exists, synthesize sensible default entries from report data
     if (!history || history.length === 0) {
@@ -113,7 +178,7 @@ export async function GET(
 
     // If history exists, ensure a created entry is at the start for legacy reports
     const hasCreatedEntry = history.some(
-      (h) => h.actionType === 'created' || h.fromStatus === null || h.fromStatus === undefined
+      (h: any) => h.actionType === 'created' || h.fromStatus === null || h.fromStatus === undefined
     );
 
     let finalHistory = history;

@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import IssueProgressBar from '@/components/IssueProgressBar';
 import StatusUpdateModal from '@/components/StatusUpdateModal';
+import StatusTimeline, { HistoryEntry } from '@/components/StatusTimeline';
+import BeforeAfterComparison from '@/components/BeforeAfterComparison';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import 'leaflet/dist/leaflet.css';
@@ -16,7 +18,7 @@ import {
   Droplets, Trash2, Milestone, Trees, Bus, Zap, Wrench,
   Camera, Calendar, User, UserCog, Mail, MapPin, Navigation, Globe,
   Satellite, ArrowLeft, ThumbsUp, Clock, Check, Loader2,
-  AlertCircle, ShieldAlert, TrendingUp, RotateCcw
+  AlertCircle, ShieldAlert, TrendingUp, RotateCcw, History
 } from 'lucide-react';
 
 interface Report {
@@ -153,6 +155,10 @@ export default function ReportDetailPage() {
   const [upvoteLoading, setUpvoteLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+  // History / timeline state
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
   // Evidence-gated lifecycle modal state
   const [modalTargetStatus, setModalTargetStatus] = useState<string | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -192,6 +198,7 @@ export default function ReportDetailPage() {
 
   useEffect(() => {
     fetchReport();
+    fetchHistory();
   }, [reportId]);
 
   const fetchReport = async () => {
@@ -217,6 +224,21 @@ export default function ReportDetailPage() {
     }
   };
 
+  const fetchHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const response = await fetch(`/api/reports/${reportId}/history`);
+      const data = await response.json();
+      if (data.success) {
+        setHistory(data.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching history:', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const handleUpvote = async () => {
     if (!report || upvoteLoading) return;
     setUpvoteLoading(true);
@@ -239,6 +261,13 @@ export default function ReportDetailPage() {
             : null
         );
         setUpvoted(data.data.upvoted);
+
+        if (data.data.escalated) {
+          toast.success(`Priority auto-escalated to ${data.data.priority.toUpperCase()} due to high community demand!`, 'Community Escalation');
+          fetchHistory();
+        } else {
+          toast.info(data.data.upvoted ? 'Upvoted! Thank you for supporting this issue.' : 'Upvote removed', 'Report Feedback');
+        }
       }
     } catch (e) {
       console.error('Upvote error:', e);
@@ -599,16 +628,36 @@ export default function ReportDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Timeline Audit History */}
+            {/* Before / After Comparison (only for resolved reports) */}
+            {report.status === 'resolved' && report.resolutionImages && report.resolutionImages.length > 0 && (
+              <Card className="border border-border/80 shadow-xs bg-card">
+                <CardContent className="p-5 sm:p-6">
+                  <BeforeAfterComparison
+                    beforeImages={report.images || []}
+                    afterImages={report.resolutionImages}
+                    resolvedAt={report.resolvedAt}
+                    resolutionNote={report.resolutionNote}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Dynamic Timeline & Audit History */}
             <Card className="border border-border/80 shadow-xs bg-card">
               <CardHeader className="p-5 pb-3 border-b border-border/60">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
-                  <Clock className="w-4 h-4 text-primary" />
-                  <span>Audit Trail & Timeline</span>
+                <CardTitle className="text-sm font-semibold flex items-center justify-between text-foreground">
+                  <span className="flex items-center gap-2">
+                    <History className="w-4 h-4 text-primary" />
+                    <span>Audit Trail & Timeline</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-2 py-0.5 rounded">
+                    {history.length} {history.length === 1 ? 'entry' : 'entries'}
+                  </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-5">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Summary stats row */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                   <div className="p-3 bg-secondary/40 rounded-lg border border-border/60 space-y-1">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Submitted On</p>
                     <p className="text-xs font-bold text-foreground">{createdDate}</p>
@@ -629,6 +678,19 @@ export default function ReportDetailPage() {
                     <p className="text-[10px] text-muted-foreground">Expected delivery</p>
                   </div>
                 </div>
+
+                {/* Dynamic Timeline */}
+                {historyLoading ? (
+                  <div className="flex items-center justify-center py-8 gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    <span className="text-xs text-muted-foreground">Loading timeline...</span>
+                  </div>
+                ) : (
+                  <StatusTimeline
+                    history={history}
+                    onImageClick={(url) => setSelectedImage(url)}
+                  />
+                )}
               </CardContent>
             </Card>
           </div>
@@ -815,6 +877,7 @@ export default function ReportDetailPage() {
             setReport(updatedReport);
             setModalTargetStatus(null);
             fetchReport();
+            fetchHistory();
           }}
         />
       )}

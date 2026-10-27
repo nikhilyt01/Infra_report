@@ -132,9 +132,15 @@ export async function POST(
         reportId: String(updated._id),
         actionType: 'priority_changed',
         performedBy: userId,
+        actorId: userId,
+        actorName: 'Community Signal',
+        actorRole: 'system',
         previousValue: before.priority,
         newValue: updated.priority,
+        note: `Auto-escalated by community demand (${updated.upvotes} upvotes): ${before.priority} → ${updated.priority}`,
         comment: `Auto-escalated by community demand (${updated.upvotes} upvotes)`,
+        fromStatus: before.priority,
+        toStatus: updated.priority,
         timestamp: new Date(),
       });
     }

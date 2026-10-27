@@ -24,7 +24,8 @@ import {
   Loader2,
   Plus,
   ArrowUpRight,
-  FolderOpen
+  FolderOpen,
+  CheckCircle as CheckCircleIcon
 } from 'lucide-react';
 
 interface Report {
@@ -42,6 +43,9 @@ interface Report {
   upvotes: number;
   reportedBy?: { name: string; email: string };
   assignedTo?: { name: string; email: string };
+  latestStatusNote?: string;
+  resolutionImages?: string[];
+  resolvedAt?: string;
 }
 
 interface CityStats {
@@ -314,6 +318,32 @@ export default function MyReportsPage() {
                                   <span>{report.upvotes || 0} upvotes</span>
                                 </div>
                               </div>
+
+                              {/* Latest status note */}
+                              {report.latestStatusNote && (
+                                <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2 italic">
+                                  &ldquo;{report.latestStatusNote}&rdquo;
+                                </p>
+                              )}
+
+                              {/* Resolved badge with thumbnail */}
+                              {report.status === 'resolved' && (
+                                <div className="flex items-center gap-2">
+                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/20">
+                                    <CheckCircleIcon className="w-3 h-3" />
+                                    Resolved
+                                  </span>
+                                  {report.resolutionImages && report.resolutionImages.length > 0 && (
+                                    <div className="w-8 h-8 rounded-md overflow-hidden border border-emerald-500/30 shrink-0">
+                                      <img
+                                        src={report.resolutionImages[0]}
+                                        alt="After"
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                               
                               <div className="flex items-center justify-between pt-2 border-t border-border/60">
                                 <div className="flex items-center gap-1.5">
