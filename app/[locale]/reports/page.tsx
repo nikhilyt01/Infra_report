@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Label } from '@/components/ui/Label';
-import { Plus, Search, Filter, MapPin, Calendar, User, ThumbsUp, ArrowUpRight } from 'lucide-react';
+import { Plus, Search, Filter, MapPin, Calendar, ThumbsUp, ArrowUpRight, ChevronDown, ChevronUp, Ban } from 'lucide-react';
 
 interface Report {
   _id: string;
@@ -27,6 +27,7 @@ interface Report {
   };
   createdAt: string;
   upvotes: number;
+  latestStatusNote?: string;
 }
 
 export default function ReportsPage() {
@@ -40,6 +41,13 @@ export default function ReportsPage() {
     category: '',
     search: '',
   });
+  // Track which rejected cards have their reason expanded
+  const [expandedReasons, setExpandedReasons] = useState<Record<string, boolean>>({});
+
+  const toggleReason = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedReasons((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   useEffect(() => {
     fetchReports();
@@ -203,68 +211,130 @@ export default function ReportsPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {reports.map((report) => (
-              <Card
-                key={report._id}
-                className="border border-border/80 hover:border-border hover:shadow-md transition-all cursor-pointer overflow-hidden flex flex-col bg-card group"
-                onClick={() => router.push(`/${locale}/reports/${report._id}`)}
-              >
-                {/* Image */}
-                {report.images && report.images.length > 0 && (
-                  <div className="w-full h-44 bg-muted relative overflow-hidden border-b border-border/60">
-                    <img
-                      src={report.images[0]}
-                      alt={report.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-                )}
+            {reports.map((report) => {
+              const isRejected = report.status === 'rejected';
+              const reasonExpanded = expandedReasons[report._id] || false;
 
-                <CardHeader className="p-4 pb-2 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold text-base text-foreground group-hover:text-primary transition-colors line-clamp-1 flex-1">
-                      {report.title}
-                    </h3>
-                    <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-                  </div>
-
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${getStatusBadge(report.status)}`}>
-                      {report.status.replace('_', ' ')}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${getPriorityBadge(report.priority)}`}>
-                      {report.priority}
-                    </span>
-                    <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-secondary text-muted-foreground border border-border/60 capitalize">
-                      {report.category}
-                    </span>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="p-4 pt-1 space-y-3 flex-1 flex flex-col justify-between">
-                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                    {report.description}
-                  </p>
-
-                  <div className="space-y-1.5 pt-2 border-t border-border/60 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1.5 truncate">
-                      <MapPin className="w-3.5 h-3.5 shrink-0 text-primary" />
-                      <span className="truncate">{report.address}</span>
+              return (
+                <Card
+                  key={report._id}
+                  className={`border hover:shadow-md transition-all cursor-pointer overflow-hidden flex flex-col bg-card group ${
+                    isRejected
+                      ? 'border-rose-400/50 hover:border-rose-400 opacity-80 hover:opacity-100'
+                      : 'border-border/80 hover:border-border'
+                  }`}
+                  onClick={() => router.push(`/${locale}/reports/${report._id}`)}
+                >
+                  {/* Image with rejected ribbon */}
+                  {report.images && report.images.length > 0 ? (
+                    <div className="w-full h-44 bg-muted relative overflow-hidden border-b border-border/60">
+                      <img
+                        src={report.images[0]}
+                        alt={report.title}
+                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${
+                          isRejected ? 'grayscale brightness-50' : ''
+                        }`}
+                      />
+                      {/* REJECTED ribbon */}
+                      {isRejected && (
+                        <>
+                          {/* Diagonal ribbon */}
+                          <div
+                            className="absolute inset-0 overflow-hidden pointer-events-none"
+                          >
+                            <div
+                              className="absolute -left-8 top-6 w-48 text-center bg-rose-600 text-white text-[10px] font-black tracking-widest uppercase py-1 shadow-lg"
+                              style={{ transform: 'rotate(-35deg)', transformOrigin: 'center' }}
+                            >
+                              Rejected
+                            </div>
+                          </div>
+                          {/* Large X icon center overlay */}
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <Ban className="w-16 h-16 text-rose-500 opacity-60" strokeWidth={1.5} />
+                          </div>
+                        </>
+                      )}
                     </div>
-
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5 shrink-0" />
-                        {new Date(report.createdAt).toLocaleDateString()}
-                      </span>
-                      <span className="flex items-center gap-1 font-medium text-foreground">
-                        <ThumbsUp className="w-3.5 h-3.5 text-primary" /> {report.upvotes || 0}
+                  ) : isRejected ? (
+                    /* No image placeholder for rejected */
+                    <div className="w-full h-24 bg-rose-900/20 relative flex items-center justify-center border-b border-rose-500/30">
+                      <Ban className="w-10 h-10 text-rose-500 opacity-40" />
+                      <span className="absolute top-2 left-2 bg-rose-600 text-white text-[10px] font-black tracking-widest uppercase px-2 py-0.5 rounded">
+                        Rejected
                       </span>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  ) : null}
+
+                  <CardHeader className="p-4 pb-2 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className={`font-semibold text-base transition-colors line-clamp-1 flex-1 ${
+                        isRejected
+                          ? 'text-muted-foreground line-through decoration-rose-400'
+                          : 'text-foreground group-hover:text-primary'
+                      }`}>
+                        {report.title}
+                      </h3>
+                      <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${getStatusBadge(report.status)}`}>
+                        {report.status.replace('_', ' ')}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${getPriorityBadge(report.priority)}`}>
+                        {report.priority}
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-secondary text-muted-foreground border border-border/60 capitalize">
+                        {report.category}
+                      </span>
+                    </div>
+
+                    {/* Collapsible rejection reason */}
+                    {isRejected && report.latestStatusNote && (
+                      <div className="mt-1">
+                        <button
+                          type="button"
+                          onClick={(e) => toggleReason(report._id, e)}
+                          className="flex items-center gap-1 text-[11px] font-semibold text-rose-500 hover:text-rose-400 transition-colors"
+                        >
+                          {reasonExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          <span>{reasonExpanded ? 'Hide' : 'Show'} rejection reason</span>
+                        </button>
+                        {reasonExpanded && (
+                          <div className="mt-1.5 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-700 dark:text-rose-300 leading-relaxed">
+                            {report.latestStatusNote}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardHeader>
+
+                  <CardContent className="p-4 pt-1 space-y-3 flex-1 flex flex-col justify-between">
+                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                      {report.description}
+                    </p>
+
+                    <div className="space-y-1.5 pt-2 border-t border-border/60 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <MapPin className="w-3.5 h-3.5 shrink-0 text-primary" />
+                        <span className="truncate">{report.address}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 shrink-0" />
+                          {new Date(report.createdAt).toLocaleDateString()}
+                        </span>
+                        <span className="flex items-center gap-1 font-medium text-foreground">
+                          <ThumbsUp className="w-3.5 h-3.5 text-primary" /> {report.upvotes || 0}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>

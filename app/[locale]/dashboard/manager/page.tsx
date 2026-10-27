@@ -44,6 +44,10 @@ interface Report {
     _id: string;
     name: string;
   };
+  location?: {
+    type: 'Point';
+    coordinates: [number, number]; // [longitude, latitude]
+  };
 }
 
 interface Analytics {
@@ -73,6 +77,7 @@ export default function ManagerDashboard() {
     title: string;
     currentStatus: string;
     targetStatus: string;
+    reportLocation?: [number, number];
   } | null>(null);
 
   useEffect(() => {
@@ -120,6 +125,7 @@ export default function ManagerDashboard() {
       title: report.title,
       currentStatus: report.status,
       targetStatus,
+      reportLocation: report.location?.coordinates,
     });
   };
 
@@ -627,6 +633,7 @@ export default function ManagerDashboard() {
           reportTitle={modalReport.title}
           currentStatus={modalReport.currentStatus}
           targetStatus={modalReport.targetStatus}
+          reportLocation={modalReport.reportLocation}
           onSuccess={() => {
             fetchDashboardData();
             setModalReport(null);

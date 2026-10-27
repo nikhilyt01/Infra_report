@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  X, Camera, Upload, Trash2, Loader2, CheckCircle2, 
+  X, Camera, Trash2, Loader2, CheckCircle2, 
   AlertTriangle, ArrowRight, ShieldAlert, Sparkles 
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -16,6 +16,8 @@ export interface StatusUpdateModalProps {
   currentStatus: string;
   targetStatus: string;
   onSuccess: (updatedReport: any) => void;
+  /** Report site coordinates [longitude, latitude] – required for GPS gate when resolving */
+  reportLocation?: [number, number];
 }
 
 export default function StatusUpdateModal({
@@ -26,6 +28,7 @@ export default function StatusUpdateModal({
   currentStatus,
   targetStatus,
   onSuccess,
+  reportLocation,
 }: StatusUpdateModalProps) {
   const { toast } = useToast();
   const [note, setNote] = useState('');
@@ -43,6 +46,40 @@ export default function StatusUpdateModal({
   const isRejecting = targetStatus === 'rejected';
   const isTerminal = ['resolved', 'rejected', 'closed'].includes(currentStatus);
   const isReopening = isTerminal && ['in_progress', 'under_review', 'submitted'].includes(targetStatus);
+
+  // ---------- GPS helpers ----------
+  /** Haversine distance in metres between two lat/lng pairs */
+  function haversineMetres(
+    lat1: number, lng1: number,
+    lat2: number, lng2: number,
+  ): number {
+    const R = 6_371_000;
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  /**
+   * Returns the manager's current GPS position, or throws a descriptive error.
+   * Resolves in < 10 s.
+   */
+  function getCurrentPosition(): Promise<GeolocationPosition> {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation is not supported by this device'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10_000,
+        maximumAge: 0,
+      });
+    });
+  }
 
   // Reset modal state on open/close
   useEffect(() => {
@@ -134,15 +171,49 @@ export default function StatusUpdateModal({
       return;
     }
 
-    // Resolution validation
+    // Resolution validation – need at least 1 camera-captured photo
     if (isResolving && selectedFiles.length === 0) {
-      toast.error('Please upload at least 1 resolution photo as evidence');
+      toast.error('Please capture a live on-site photo to prove the work is completed');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
+      // ---- GPS gate for resolution ----
+      if (isResolving && reportLocation) {
+        setUploadProgress('Verifying your location…');
+        let pos: GeolocationPosition;
+        try {
+          pos = await getCurrentPosition();
+        } catch (geoErr: any) {
+          const msg =
+            geoErr?.code === 1
+              ? 'Location permission denied. Please allow location access and try again.'
+              : 'Unable to get your GPS location. Please try again.';
+          toast.error(msg, 'Location Required');
+          setIsSubmitting(false);
+          setUploadProgress('');
+          return;
+        }
+
+        const [reportLng, reportLat] = reportLocation; // GeoJSON: [lng, lat]
+        const distance = haversineMetres(
+          pos.coords.latitude, pos.coords.longitude,
+          reportLat, reportLng,
+        );
+
+        const THRESHOLD_M = 500; // 500-metre radius
+        if (distance > THRESHOLD_M) {
+          toast.error(
+            `You are ${Math.round(distance)} m away from the reported site. You must be within ${THRESHOLD_M} m to resolve this report.`,
+            'Too Far From Site',
+          );
+          setIsSubmitting(false);
+          setUploadProgress('');
+          return;
+        }
+      }
       let resolutionImages: string[] = [];
 
       // If resolving, upload files first via /api/upload
@@ -320,10 +391,10 @@ export default function StatusUpdateModal({
                 <div>
                   <h4 className="font-semibold text-xs text-foreground flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>Resolution Photo Evidence *</span>
+                    <span>Live On-Site Photo Evidence *</span>
                   </h4>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    At least 1 resolution photo is required to prove the work is completed.
+                    Take a live camera photo at the site. Your GPS location will be verified on submission.
                   </p>
                 </div>
                 <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
@@ -362,31 +433,10 @@ export default function StatusUpdateModal({
                 </div>
               )}
 
-              {/* Upload Actions (File Picker & Camera Capture) */}
+              {/* Upload Actions – Camera ONLY for resolution */}
               {selectedFiles.length < 4 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                  {/* File browser */}
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="image/*"
-                    multiple
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isSubmitting}
-                    className="h-10 text-xs flex items-center justify-center gap-2 border-dashed border-border/80 hover:border-primary"
-                  >
-                    <Upload className="w-4 h-4 text-primary" />
-                    <span>Choose Photos</span>
-                  </Button>
-
-                  {/* Direct Camera Capture (Mobile-friendly) */}
+                <div className="pt-1 space-y-2">
+                  {/* Live camera capture (mandatory for resolution) */}
                   <input
                     type="file"
                     ref={cameraInputRef}
@@ -401,11 +451,14 @@ export default function StatusUpdateModal({
                     size="sm"
                     onClick={() => cameraInputRef.current?.click()}
                     disabled={isSubmitting}
-                    className="h-10 text-xs flex items-center justify-center gap-2 border-dashed border-border/80 hover:border-primary"
+                    className="w-full h-11 text-xs flex items-center justify-center gap-2 border-2 border-emerald-500/60 hover:border-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold"
                   >
-                    <Camera className="w-4 h-4 text-emerald-500" />
-                    <span>Take Live Camera Photo</span>
+                    <Camera className="w-4 h-4" />
+                    <span>Take Live On-Site Photo 📍</span>
                   </Button>
+                  <p className="text-[10px] text-muted-foreground text-center">
+                    Only live camera photos accepted. Your GPS will be verified before submission.
+                  </p>
                 </div>
               )}
             </div>
