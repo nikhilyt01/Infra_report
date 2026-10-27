@@ -53,7 +53,7 @@ export default function SignupPage() {
         formData.role,
         { department: formData.department }
       );
-      
+
       if (formData.role === 'supervisor') {
         const code = res?.data?.user?.supervisorCode;
         setCreatedSupervisorCode(code || 'Pending');
@@ -121,7 +121,7 @@ export default function SignupPage() {
                   setCopiedCode(true);
                   setTimeout(() => setCopiedCode(false), 2000);
                 }}
-                className="text-xs border-amber-500/40 hover:bg-amber-500/20 text-amber-300"
+                className="text-xs border-amber-500/40  hover:text-amber-300"
               >
                 {copiedCode ? 'Copied!' : 'Copy ID'}
               </Button>
@@ -210,42 +210,42 @@ export default function SignupPage() {
               </div>
             )}
 
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required
-              className="mt-2"
-              placeholder="••••••••"
-              minLength={6}
-            />
-          </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                required
+                className="mt-2"
+                placeholder="••••••••"
+                minLength={6}
+              />
+            </div>
 
-          <div>
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              value={formData.confirmPassword}
-              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-              required
-              className="mt-2"
-              placeholder="••••••••"
-              minLength={6}
-            />
-          </div>
+            <div>
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                required
+                className="mt-2"
+                placeholder="••••••••"
+                minLength={6}
+              />
+            </div>
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading}
-          >
-            {loading ? 'Creating account...' : 'Create Account'}
-          </Button>
-        </form>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading}
+            >
+              {loading ? 'Creating account...' : 'Create Account'}
+            </Button>
+          </form>
         )}
 
         <div className="mt-6 text-center">

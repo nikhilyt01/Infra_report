@@ -168,7 +168,7 @@ export default function AccessibilityFeatures() {
       {/* Accessibility Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed top-24 right-4 z-50 w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all"
+        className="fixed top-24 right-4 z-[9999] w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all"
         aria-label="Toggle accessibility options"
         title="Accessibility Options"
       >
@@ -179,7 +179,7 @@ export default function AccessibilityFeatures() {
 
       {/* Accessibility Panel */}
       {isOpen && (
-        <div className="fixed top-40 right-4 z-50 bg-white  p-6 rounded-lg shadow-2xl border-2 border-blue-500/30 w-80 space-y-4">
+        <div className="fixed top-40 right-4 z-[9999] bg-white  p-6 rounded-lg shadow-2xl border-2 border-blue-500/30 w-80 space-y-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Accessibility</h3>
             <button

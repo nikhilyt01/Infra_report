@@ -134,7 +134,8 @@ function MiniSatelliteMap({ lat, lng }: { lat: number; lng: number }) {
   return (
     <div
       ref={containerRef}
-      className="w-full h-full min-h-[200px] rounded-xl overflow-hidden border border-border/80 bg-slate-950 shadow-inner"
+      className="w-full h-full min-h-[200px] rounded-xl overflow-hidden border border-border/80 bg-slate-950 shadow-inner relative z-0 isolate"
+      style={{ zIndex: 0 }}
     />
   );
 }
@@ -739,7 +740,7 @@ export default function ReportDetailPage() {
           {/* Right Sidebar (1/3) */}
           <div className="space-y-6">
             {/* Satellite & Aerial Map Card */}
-            <Card className="border border-border/80 shadow-xs bg-card overflow-hidden">
+            <Card className="border border-border/80 shadow-xs bg-card overflow-hidden relative z-0 isolate">
               <CardHeader className="p-5 pb-3 border-b border-border/60">
                 <CardTitle className="text-sm font-semibold flex items-center justify-between text-foreground">
                   <span className="flex items-center gap-1.5">
@@ -753,10 +754,10 @@ export default function ReportDetailPage() {
                 {hasValidLocation ? (
                   <>
                     {/* Live Satellite Mini Map Viewport */}
-                    <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-border/80 bg-slate-950 shadow-inner">
+                    <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-border/80 bg-slate-950 shadow-inner z-0 isolate">
                       <MiniSatelliteMap lat={lat} lng={lng} />
 
-                      <div className="absolute bottom-2 left-2 bg-black/80 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-0.5 rounded pointer-events-none z-[400]">
+                      <div className="absolute bottom-2 left-2 bg-black/80 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-0.5 rounded pointer-events-none z-10">
                         {lat.toFixed(5)}, {lng.toFixed(5)}
                       </div>
                     </div>
