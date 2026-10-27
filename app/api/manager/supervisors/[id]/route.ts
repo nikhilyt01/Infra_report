@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
+import { markSupervisorNotificationsRead } from '@/lib/notifications';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -58,6 +59,9 @@ export async function PUT(
       }
       await targetUser.save();
 
+      // Automatically mark related supervisor approval notifications as read
+      await markSupervisorNotificationsRead(id);
+
       return NextResponse.json({
         success: true,
         message: `Supervisor ${targetUser.name} (${targetUser.supervisorCode}) approved successfully.`,
@@ -66,6 +70,9 @@ export async function PUT(
     } else {
       targetUser.isApproved = false;
       await targetUser.save();
+
+      // Automatically mark related supervisor approval notifications as read
+      await markSupervisorNotificationsRead(id);
 
       return NextResponse.json({
         success: true,

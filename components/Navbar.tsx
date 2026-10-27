@@ -27,9 +27,11 @@ import {
   ShieldCheck,
   Building2,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Bell
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import NotificationDropdown from "@/components/NotificationDropdown";
 
 export default function Navbar() {
   const params = useParams();
@@ -285,7 +287,9 @@ export default function Navbar() {
                 </Link>
               </div>
             ) : (
-              <div className="relative pl-2 border-l border-border/80" ref={dropdownRef}>
+              <div className="flex items-center gap-2 pl-2 border-l border-border/80">
+                <NotificationDropdown />
+                <div className="relative" ref={dropdownRef}>
                 <button
                   type="button"
                   onClick={() => setUserDropdownOpen((prev) => !prev)}
@@ -480,11 +484,13 @@ export default function Navbar() {
                   </div>
                 )}
               </div>
+            </div>
             )}
           </div>
 
           {/* Mobile Menu Button */}
           <div className="flex lg:hidden items-center gap-2">
+            {user && <NotificationDropdown />}
             <Link href={`/${locale}/reports/new`}>
               <Button size="sm" className="flex items-center gap-1 text-xs px-2.5 py-1">
                 <Plus className="w-3.5 h-3.5" />
@@ -560,6 +566,19 @@ export default function Navbar() {
 
           {user && (
             <>
+              <Link
+                href={`/${locale}/notifications`}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium ${
+                  isActive(`/${locale}/notifications`)
+                    ? 'bg-primary/10 text-primary font-semibold'
+                    : 'text-foreground hover:bg-secondary'
+                }`}
+              >
+                <Bell className="w-4 h-4 text-primary" />
+                <span>Notifications</span>
+              </Link>
+
               <Link
                 href={`/${locale}/my-reports`}
                 onClick={() => setMobileMenuOpen(false)}

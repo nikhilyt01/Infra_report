@@ -4,6 +4,7 @@ import Report from '@/models/Report';
 import User from '@/models/User';
 import ReportHistory, { ActionType } from '@/models/ReportHistory';
 import { validateStatusTransition } from '@/lib/reportLifecycle';
+import { notifyReportResolved } from '@/lib/notifications';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -311,6 +312,13 @@ export async function PATCH(
       .populate({ path: 'assignedBy', select: 'name email avatar', strictPopulate: false })
       .populate({ path: 'approvedBy', select: 'name email avatar', strictPopulate: false })
       .populate({ path: 'initiatedBy', select: 'name email avatar', strictPopulate: false });
+
+    // Trigger notifications if report was just resolved
+    if (body.status === 'resolved' && report.status !== 'resolved') {
+      notifyReportResolved(id, actorId, actorName).catch((err) => {
+        console.error('Failed to dispatch report resolved notifications:', err);
+      });
+    }
 
     return NextResponse.json({
       success: true,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import jwt from 'jsonwebtoken';
+import { notifySupervisorSignup } from '@/lib/notifications';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -85,6 +86,10 @@ export async function POST(request: NextRequest) {
       signupMessage = 'Account created! Waiting for admin approval to access manager dashboard.';
     } else if (role === 'supervisor') {
       signupMessage = `Supervisor account created! Your Supervisor ID is ${supervisorCode}. Share this with your municipal manager for approval.`;
+      // Dispatch notification to active managers/admins
+      notifySupervisorSignup(user._id, user.name, supervisorCode).catch((err) => {
+        console.error('Failed to notify managers of supervisor signup:', err);
+      });
     }
 
     // Create response with token

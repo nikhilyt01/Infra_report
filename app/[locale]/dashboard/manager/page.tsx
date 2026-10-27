@@ -13,12 +13,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import IssueProgressBar from '@/components/IssueProgressBar';
 import StatusUpdateModal from '@/components/StatusUpdateModal';
-import { 
-  BarChart3, Clock, TrendingUp, CheckCircle, 
-  RotateCcw, Filter, MapPin, User, ThumbsUp, 
+import {
+  BarChart3, Clock, TrendingUp, CheckCircle,
+  RotateCcw, Filter, MapPin, User, ThumbsUp,
   Check, ArrowUpRight, Loader2, ShieldCheck, AlertCircle,
   Camera, Eye, Bell, Search, UserCheck, UserX, X,
-  Wrench, Copy, Sparkles, UserPlus, Users
+  Wrench, Copy, Sparkles, UserPlus, Users, CheckCheck
 } from 'lucide-react';
 
 interface Report {
@@ -99,6 +99,8 @@ export default function ManagerDashboard() {
   const [supervisorsLoading, setSupervisorsLoading] = useState(false);
   const [supervisorSearch, setSupervisorSearch] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [managerNotifications, setManagerNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   // Evidence-gated status modal state
   const [modalReport, setModalReport] = useState<{
@@ -112,7 +114,50 @@ export default function ManagerDashboard() {
   useEffect(() => {
     fetchDashboardData();
     fetchSupervisors();
+    fetchNotifications();
   }, [statusFilter, areaFilter]);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch('/api/notifications?limit=30');
+      const data = await res.json();
+      if (data.success) {
+        setManagerNotifications(data.data || []);
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch (e) {
+      console.error('Failed to fetch notifications:', e);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    // Optimistic UI update
+    setUnreadCount(0);
+    setManagerNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+
+    try {
+      const res = await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markAllAsRead: true }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUnreadCount(data.unreadCount ?? 0);
+        toast.success('All notifications marked as read', 'Updated');
+      }
+    } catch {
+      fetchNotifications();
+    }
+  };
+
+  const handleToggleNotificationsHub = () => {
+    const nextState = !showNotificationsHub;
+    setShowNotificationsHub(nextState);
+    if (nextState && unreadCount > 0) {
+      handleMarkAllAsRead();
+    }
+  };
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -167,6 +212,16 @@ export default function ManagerDashboard() {
   };
 
   const handleApproveSupervisor = async (supId: string) => {
+    // Optimistically update notifications related to this supervisor
+    setManagerNotifications((prev) =>
+      prev.map((n) =>
+        n.type === 'supervisor_signup' && String(n.relatedUserId) === String(supId)
+          ? { ...n, isRead: true }
+          : n
+      )
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+
     try {
       const res = await fetch(`/api/manager/supervisors/${supId}`, {
         method: 'PUT',
@@ -177,15 +232,28 @@ export default function ManagerDashboard() {
       if (data.success) {
         toast.success(data.message || 'Supervisor approved!', 'Supervisor Activated');
         fetchSupervisors(supervisorSearch.trim());
+        fetchNotifications();
       } else {
         toast.error(data.error || 'Failed to approve supervisor');
+        fetchNotifications();
       }
     } catch (err: any) {
       toast.error(err.message || 'Error approving supervisor');
+      fetchNotifications();
     }
   };
 
   const handleRevokeSupervisor = async (supId: string) => {
+    // Optimistically update notifications related to this supervisor
+    setManagerNotifications((prev) =>
+      prev.map((n) =>
+        n.type === 'supervisor_signup' && String(n.relatedUserId) === String(supId)
+          ? { ...n, isRead: true }
+          : n
+      )
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+
     try {
       const res = await fetch(`/api/manager/supervisors/${supId}`, {
         method: 'PUT',
@@ -196,11 +264,14 @@ export default function ManagerDashboard() {
       if (data.success) {
         toast.info(data.message || 'Supervisor access revoked.', 'Access Revoked');
         fetchSupervisors(supervisorSearch.trim());
+        fetchNotifications();
       } else {
         toast.error(data.error || 'Failed to revoke supervisor');
+        fetchNotifications();
       }
     } catch (err: any) {
       toast.error(err.message || 'Error revoking supervisor');
+      fetchNotifications();
     }
   };
 
@@ -249,7 +320,7 @@ export default function ManagerDashboard() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           approvedBy: user._id,
           status: 'under_review',
           note: 'Report reviewed and approved by municipal manager',
@@ -287,7 +358,7 @@ export default function ManagerDashboard() {
     return { escalated, unapproved };
   }, [reports]);
 
-  const totalNotifications = pendingSupervisors.length + generalAlerts.escalated.length;
+  const totalNotifications = unreadCount;
 
   const getStatusBadge = (status: string) => {
     const map: Record<string, string> = {
@@ -339,7 +410,7 @@ export default function ManagerDashboard() {
           <div className="flex items-center gap-2 w-full sm:w-auto">
             {/* Notification & Approval Hub Button */}
             <Button
-              onClick={() => setShowNotificationsHub(!showNotificationsHub)}
+              onClick={handleToggleNotificationsHub}
               variant={showNotificationsHub ? 'default' : 'outline'}
               size="sm"
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 text-xs font-semibold relative h-9"
@@ -388,13 +459,26 @@ export default function ManagerDashboard() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setShowNotificationsHub(false)}
-                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary shrink-0"
-                  aria-label="Close hub"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleMarkAllAsRead}
+                      className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-secondary"
+                      title="Mark all notifications as read"
+                    >
+                      <CheckCheck className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Mark all read</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowNotificationsHub(false)}
+                    className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary shrink-0"
+                    aria-label="Close hub"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               {/* Tabs */}
@@ -402,11 +486,10 @@ export default function ManagerDashboard() {
                 <button
                   type="button"
                   onClick={() => setNotificationTab('approvals')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    notificationTab === 'approvals'
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${notificationTab === 'approvals'
                       ? 'bg-amber-500 text-gray-950 shadow-xs'
                       : 'bg-secondary/60 text-muted-foreground hover:text-foreground'
-                  }`}
+                    }`}
                 >
                   <UserCheck className="w-3.5 h-3.5 shrink-0" />
                   <span>Supervisor Approvals</span>
@@ -420,11 +503,10 @@ export default function ManagerDashboard() {
                 <button
                   type="button"
                   onClick={() => setNotificationTab('general')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    notificationTab === 'general'
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${notificationTab === 'general'
                       ? 'bg-primary text-primary-foreground shadow-xs'
                       : 'bg-secondary/60 text-muted-foreground hover:text-foreground'
-                  }`}
+                    }`}
                 >
                   <Sparkles className="w-3.5 h-3.5 shrink-0" />
                   <span>General Alerts</span>
@@ -519,11 +601,10 @@ export default function ManagerDashboard() {
 
                                 {/* Approval Status Badge */}
                                 <span
-                                  className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${
-                                    sup.isApproved
+                                  className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${sup.isApproved
                                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
                                       : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30'
-                                  }`}
+                                    }`}
                                 >
                                   {sup.isApproved ? 'Approved & Active' : 'Pending Approval'}
                                 </span>
@@ -572,45 +653,87 @@ export default function ManagerDashboard() {
                 </div>
               )}
 
-              {/* TAB 2: GENERAL NOTIFICATIONS */}
+              {/* TAB 2: GENERAL NOTIFICATIONS & ALERTS */}
               {notificationTab === 'general' && (
                 <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-                  {generalAlerts.escalated.length === 0 ? (
+                  {managerNotifications.length === 0 && generalAlerts.escalated.length === 0 ? (
                     <div className="py-8 text-center text-xs text-muted-foreground">
-                      No community escalated or urgent priority tickets right now.
+                      No notifications or urgent alerts right now.
                     </div>
                   ) : (
-                    generalAlerts.escalated.map((rep) => (
-                      <div
-                        key={rep._id}
-                        className="p-3 rounded-xl border border-border/80 bg-background/80 flex items-center justify-between gap-2.5 text-xs"
-                      >
-                        <div className="space-y-0.5 flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-rose-500/10 text-rose-600 border border-rose-500/20">
-                              {rep.priority}
-                            </span>
-                            <span className="font-semibold text-foreground truncate max-w-[200px]">
-                              {rep.title}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground shrink-0">
-                              (👍 {rep.upvotes} upvotes)
-                            </span>
+                    <>
+                      {/* Database Persistent Notifications */}
+                      {managerNotifications.map((n) => (
+                        <div
+                          key={n._id}
+                          className={`p-3 rounded-xl border flex items-center justify-between gap-2.5 text-xs transition-all ${
+                            !n.isRead
+                              ? 'border-amber-500/40 bg-amber-500/5'
+                              : 'border-border/80 bg-background/80'
+                          }`}
+                        >
+                          <div className="space-y-0.5 flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                                {n.type === 'supervisor_signup' ? 'Approval' : 'Alert'}
+                              </span>
+                              <span className="font-semibold text-foreground truncate max-w-[200px]">
+                                {n.title}
+                              </span>
+                              {!n.isRead && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                              )}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground truncate">{n.message}</p>
                           </div>
-                          <p className="text-[11px] text-muted-foreground truncate">{rep.address}</p>
-                        </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Link
-                            href={`/${locale}/reports/${rep._id}`}
-                            className="text-primary hover:underline text-xs font-semibold flex items-center gap-1"
-                          >
-                            <span>Inspect</span>
-                            <ArrowUpRight className="w-3 h-3" />
-                          </Link>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {n.link && (
+                              <Link
+                                href={`/${locale}${n.link.startsWith('/') ? n.link : `/${n.link}`}`}
+                                className="text-primary hover:underline text-xs font-semibold flex items-center gap-1"
+                              >
+                                <span>View</span>
+                                <ArrowUpRight className="w-3 h-3" />
+                              </Link>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      ))}
+
+                      {/* Escalated Tickets Alerts */}
+                      {generalAlerts.escalated.map((rep) => (
+                        <div
+                          key={rep._id}
+                          className="p-3 rounded-xl border border-border/80 bg-background/80 flex items-center justify-between gap-2.5 text-xs"
+                        >
+                          <div className="space-y-0.5 flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                                {rep.priority}
+                              </span>
+                              <span className="font-semibold text-foreground truncate max-w-[200px]">
+                                {rep.title}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground shrink-0">
+                                (👍 {rep.upvotes} upvotes)
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground truncate">{rep.address}</p>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Link
+                              href={`/${locale}/reports/${rep._id}`}
+                              className="text-primary hover:underline text-xs font-semibold flex items-center gap-1"
+                            >
+                              <span>Inspect</span>
+                              <ArrowUpRight className="w-3 h-3" />
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
+                    </>
                   )}
                 </div>
               )}
@@ -787,7 +910,7 @@ export default function ManagerDashboard() {
                     </thead>
                     <tbody className="divide-y divide-border/60">
                       {reports.map((report) => (
-                        <tr 
+                        <tr
                           key={report._id}
                           onClick={() => router.push(`/${locale}/reports/${report._id}`)}
                           className="hover:bg-secondary/40 transition-colors cursor-pointer group"
@@ -907,7 +1030,7 @@ export default function ManagerDashboard() {
                                 </Select>
                               )}
 
-                              <Link 
+                              <Link
                                 href={`/${locale}/reports/${report._id}`}
                                 className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shrink-0"
                                 title="Open Ticket Details"
@@ -925,7 +1048,7 @@ export default function ManagerDashboard() {
                 {/* Mobile Responsive Cards View */}
                 <div className="block md:hidden divide-y divide-border/60">
                   {reports.map((report) => (
-                    <div 
+                    <div
                       key={report._id}
                       onClick={() => router.push(`/${locale}/reports/${report._id}`)}
                       className="p-3.5 sm:p-4 space-y-3 hover:bg-secondary/30 transition-colors cursor-pointer"
@@ -1045,7 +1168,7 @@ export default function ManagerDashboard() {
                             </Select>
                           )}
 
-                          <Link 
+                          <Link
                             href={`/${locale}/reports/${report._id}`}
                             className="h-8 w-8 rounded-md bg-secondary/80 hover:bg-secondary text-foreground transition-colors flex items-center justify-center shrink-0 border border-border/60"
                             title="Open Ticket"
