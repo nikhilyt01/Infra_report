@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  X, Camera, Trash2, Loader2, CheckCircle2, 
-  AlertTriangle, ArrowRight, ShieldAlert, Sparkles 
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  X, Camera, Trash2, Loader2, CheckCircle2,
+  ShieldAlert, Sparkles, VideoOff, RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/contexts/ToastContext';
@@ -32,15 +32,22 @@ export default function StatusUpdateModal({
 }: StatusUpdateModalProps) {
   const { toast } = useToast();
   const [note, setNote] = useState('');
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [capturedFiles, setCapturedFiles] = useState<File[]>([]);
+  const [capturedPreviews, setCapturedPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>('');
 
+  // Camera state
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraError, setCameraError] = useState<string>('');
+  const [cameraReady, setCameraReady] = useState(false);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+
   const modalRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const isResolving = targetStatus === 'resolved';
   const isRejecting = targetStatus === 'rejected';
@@ -48,7 +55,6 @@ export default function StatusUpdateModal({
   const isReopening = isTerminal && ['in_progress', 'under_review', 'submitted'].includes(targetStatus);
 
   // ---------- GPS helpers ----------
-  /** Haversine distance in metres between two lat/lng pairs */
   function haversineMetres(
     lat1: number, lng1: number,
     lat2: number, lng2: number,
@@ -63,10 +69,6 @@ export default function StatusUpdateModal({
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
-  /**
-   * Returns the manager's current GPS position, or throws a descriptive error.
-   * Resolves in < 10 s.
-   */
   function getCurrentPosition(): Promise<GeolocationPosition> {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
@@ -81,108 +83,154 @@ export default function StatusUpdateModal({
     });
   }
 
-  // Reset modal state on open/close
+  // ---------- Camera helpers ----------
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setCameraReady(false);
+    setCameraOpen(false);
+    setCameraError('');
+  }, []);
+
+  const startCamera = useCallback(async (facing: 'environment' | 'user' = 'environment') => {
+    // Stop any existing stream first
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setCameraError('');
+    setCameraReady(false);
+    setCameraOpen(true);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play();
+          setCameraReady(true);
+        };
+      }
+    } catch (err: any) {
+      const msg =
+        err?.name === 'NotAllowedError'
+          ? 'Camera permission denied. Please allow camera access in your browser settings.'
+          : err?.name === 'NotFoundError'
+          ? 'No camera device found on this device.'
+          : `Camera error: ${err?.message || 'Unknown error'}`;
+      setCameraError(msg);
+      setCameraReady(false);
+    }
+  }, []);
+
+  const flipCamera = async () => {
+    const next: 'environment' | 'user' = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(next);
+    await startCamera(next);
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current || !cameraReady) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const timestamp = Date.now();
+      const file = new File([blob], `live-photo-${timestamp}.jpg`, { type: 'image/jpeg' });
+      const previewUrl = URL.createObjectURL(blob);
+      setCapturedFiles((prev) => [...prev, file]);
+      setCapturedPreviews((prev) => [...prev, previewUrl]);
+      // Close camera after capture
+      stopCamera();
+      toast.success('Photo captured!', 'Live Photo');
+    }, 'image/jpeg', 0.92);
+  };
+
+  const removeCapture = (index: number) => {
+    if (capturedPreviews[index]?.startsWith('blob:')) {
+      URL.revokeObjectURL(capturedPreviews[index]);
+    }
+    setCapturedFiles((prev) => prev.filter((_, i) => i !== index));
+    setCapturedPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // ---------- Lifecycle ----------
   useEffect(() => {
     if (isOpen) {
       setNote('');
-      setSelectedFiles([]);
-      setImagePreviews([]);
+      setCapturedFiles([]);
+      setCapturedPreviews([]);
       setIsSubmitting(false);
       setUploadProgress('');
+      setCameraOpen(false);
+      setCameraError('');
       setTimeout(() => textareaRef.current?.focus(), 100);
+    } else {
+      stopCamera();
     }
-  }, [isOpen, targetStatus]);
+  }, [isOpen, targetStatus, stopCamera]);
 
-  // Clean up blob preview URLs to avoid memory leaks
+  // Cleanup blob URLs
   useEffect(() => {
     return () => {
-      imagePreviews.forEach((url) => {
-        if (url.startsWith('blob:')) {
-          URL.revokeObjectURL(url);
-        }
+      capturedPreviews.forEach((url) => {
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url);
       });
+      stopCamera();
     };
-  }, [imagePreviews]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Handle ESC key to close
+  // ESC key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen || isSubmitting) return;
       if (e.key === 'Escape') {
-        onClose();
+        if (cameraOpen) { stopCamera(); } else { onClose(); }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isSubmitting, onClose]);
+  }, [isOpen, isSubmitting, onClose, cameraOpen, stopCamera]);
 
   if (!isOpen) return null;
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-
-    if (selectedFiles.length + files.length > 4) {
-      toast.warning('Maximum 4 resolution photos allowed');
-      return;
-    }
-
-    const validFiles: File[] = [];
-    const newPreviews: string[] = [];
-
-    for (const file of files) {
-      if (file.type.startsWith('image/')) {
-        validFiles.push(file);
-        newPreviews.push(URL.createObjectURL(file));
-      } else {
-        toast.error(`"${file.name}" is not a valid image file.`);
-      }
-    }
-
-    setSelectedFiles((prev) => [...prev, ...validFiles]);
-    setImagePreviews((prev) => [...prev, ...newPreviews]);
-
-    // Reset input value so same file can be re-selected if removed
-    if (e.target) e.target.value = '';
-  };
-
-  const removeImage = (index: number) => {
-    if (imagePreviews[index]?.startsWith('blob:')) {
-      URL.revokeObjectURL(imagePreviews[index]);
-    }
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
-  };
-
+  // ---------- Submit ----------
   const handleSubmit = async (skipNote = false) => {
     const noteText = skipNote ? '' : note.trim();
 
-    // Rejection validation
     if (isRejecting && noteText.length < 3) {
       toast.error('Please provide a reason to reject this report');
       textareaRef.current?.focus();
       return;
     }
-
-    // Reopening validation
     if (isReopening && noteText.length < 3) {
       toast.error('A reason is required to reopen this report');
       textareaRef.current?.focus();
       return;
     }
-
-    // Resolution validation – need at least 1 camera-captured photo
-    if (isResolving && selectedFiles.length === 0) {
-      toast.error('Please capture a live on-site photo to prove the work is completed');
+    if (isResolving && capturedFiles.length === 0) {
+      toast.error('Please take a live on-site photo before resolving');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // ---- GPS gate for resolution ----
+      // GPS gate for resolution
       if (isResolving && reportLocation) {
-        setUploadProgress('Verifying your location…');
+        setUploadProgress('Verifying your GPS location…');
         let pos: GeolocationPosition;
         try {
           pos = await getCurrentPosition();
@@ -203,7 +251,7 @@ export default function StatusUpdateModal({
           reportLat, reportLng,
         );
 
-        const THRESHOLD_M = 500; // 500-metre radius
+        const THRESHOLD_M = 500;
         if (distance > THRESHOLD_M) {
           toast.error(
             `You are ${Math.round(distance)} m away from the reported site. You must be within ${THRESHOLD_M} m to resolve this report.`,
@@ -214,28 +262,27 @@ export default function StatusUpdateModal({
           return;
         }
       }
+
       let resolutionImages: string[] = [];
 
-      // If resolving, upload files first via /api/upload
-      if (isResolving && selectedFiles.length > 0) {
-        setUploadProgress('Uploading resolution evidence...');
+      // Upload captured photos
+      if (isResolving && capturedFiles.length > 0) {
+        setUploadProgress('Uploading live evidence photos…');
         const formData = new FormData();
-        selectedFiles.forEach((file) => formData.append('files', file));
+        capturedFiles.forEach((file) => formData.append('files', file));
 
         const uploadRes = await fetch('/api/upload', {
           method: 'POST',
           body: formData,
         });
-
         const uploadData = await uploadRes.json();
         if (!uploadRes.ok || !uploadData.success) {
           throw new Error(uploadData.error || 'Failed to upload resolution images');
         }
-
         resolutionImages = uploadData.data;
       }
 
-      setUploadProgress('Updating report status...');
+      setUploadProgress('Updating report status…');
 
       const payload: any = {
         status: targetStatus,
@@ -257,9 +304,8 @@ export default function StatusUpdateModal({
         throw new Error(data.error || 'Failed to update report status');
       }
 
-      // Show specific toast message
       if (isResolving) {
-        toast.success('Report marked as resolved with photo evidence!', 'Resolution Verified');
+        toast.success('Report marked as resolved with live photo evidence!', 'Resolution Verified ✅');
       } else if (isRejecting) {
         toast.info('Report status updated to Rejected', 'Report Rejected');
       } else if (isReopening) {
@@ -296,7 +342,7 @@ export default function StatusUpdateModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={(e) => {
-        if (!isSubmitting && e.target === e.currentTarget) onClose();
+        if (!isSubmitting && e.target === e.currentTarget && !cameraOpen) onClose();
       }}
       role="dialog"
       aria-modal="true"
@@ -325,7 +371,7 @@ export default function StatusUpdateModal({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={cameraOpen ? stopCamera : onClose}
             disabled={isSubmitting}
             className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
             aria-label="Close modal"
@@ -384,9 +430,12 @@ export default function StatusUpdateModal({
             />
           </div>
 
-          {/* Evidence Image Uploader (Required for Resolved) */}
+          {/* ============================================================
+              LIVE CAMERA SECTION (only for resolution)
+          ============================================================ */}
           {isResolving && (
             <div className="space-y-3 pt-1">
+              {/* Section header */}
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="font-semibold text-xs text-foreground flex items-center gap-1.5">
@@ -394,30 +443,30 @@ export default function StatusUpdateModal({
                     <span>Live On-Site Photo Evidence *</span>
                   </h4>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Take a live camera photo at the site. Your GPS location will be verified on submission.
+                    Open camera → take a live photo at the site. GPS is verified on submit.
                   </p>
                 </div>
                 <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                  {selectedFiles.length} / 4
+                  {capturedFiles.length} / 4
                 </span>
               </div>
 
-              {/* Image Previews */}
-              {imagePreviews.length > 0 && (
+              {/* Captured photo previews */}
+              {capturedPreviews.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  {imagePreviews.map((url, idx) => (
+                  {capturedPreviews.map((url, idx) => (
                     <div
                       key={idx}
                       className="relative aspect-square rounded-lg overflow-hidden border border-border/80 bg-secondary/40 group shadow-xs"
                     >
                       <img
                         src={url}
-                        alt={`Resolution proof #${idx + 1}`}
+                        alt={`Live proof #${idx + 1}`}
                         className="w-full h-full object-cover"
                       />
                       <button
                         type="button"
-                        onClick={() => removeImage(idx)}
+                        onClick={() => removeCapture(idx)}
                         disabled={isSubmitting}
                         className="absolute top-1 right-1 p-1 rounded-md bg-black/70 hover:bg-destructive text-white transition-colors"
                         title="Remove photo"
@@ -426,40 +475,106 @@ export default function StatusUpdateModal({
                         <Trash2 className="w-3 h-3" />
                       </button>
                       <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] font-mono px-1 rounded">
-                        #{idx + 1}
+                        #{idx + 1} 📍
                       </span>
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Upload Actions – Camera ONLY for resolution */}
-              {selectedFiles.length < 4 && (
-                <div className="pt-1 space-y-2">
-                  {/* Live camera capture (mandatory for resolution) */}
-                  <input
-                    type="file"
-                    ref={cameraInputRef}
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleFileChange}
-                    className="hidden"
+              {/* ---- Live Camera Viewfinder ---- */}
+              {cameraOpen ? (
+                <div className="rounded-xl overflow-hidden border-2 border-emerald-500/50 bg-black relative">
+                  {/* Video stream */}
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full aspect-video object-cover"
                   />
+                  {/* Hidden canvas for snapshot */}
+                  <canvas ref={canvasRef} className="hidden" />
+
+                  {/* Camera loading / error overlay */}
+                  {!cameraReady && !cameraError && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-2 text-white">
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                      <span className="text-xs">Starting camera…</span>
+                    </div>
+                  )}
+                  {cameraError && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 gap-3 text-white p-4 text-center">
+                      <VideoOff className="w-8 h-8 text-rose-400" />
+                      <p className="text-xs text-rose-300">{cameraError}</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => startCamera(facingMode)}
+                        className="text-xs text-white border-white/30 hover:bg-white/10"
+                      >
+                        <RefreshCw className="w-3 h-3 mr-1" /> Retry
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Camera controls overlay */}
+                  {cameraReady && (
+                    <div className="absolute bottom-0 inset-x-0 flex items-center justify-between p-3 bg-gradient-to-t from-black/70 to-transparent">
+                      {/* Flip camera */}
+                      <button
+                        type="button"
+                        onClick={flipCamera}
+                        className="p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
+                        title="Flip camera"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+
+                      {/* Capture button */}
+                      <button
+                        type="button"
+                        onClick={capturePhoto}
+                        className="w-14 h-14 rounded-full border-4 border-white bg-white/20 hover:bg-white/30 text-white transition-all hover:scale-105 active:scale-95 flex items-center justify-center shadow-lg"
+                        title="Capture photo"
+                      >
+                        <Camera className="w-6 h-6" />
+                      </button>
+
+                      {/* Close camera */}
+                      <button
+                        type="button"
+                        onClick={stopCamera}
+                        className="p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
+                        title="Close camera"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* ---- Open Camera button ---- */
+                capturedFiles.length < 4 && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => cameraInputRef.current?.click()}
+                    onClick={() => startCamera(facingMode)}
                     disabled={isSubmitting}
-                    className="w-full h-11 text-xs flex items-center justify-center gap-2 border-2 border-emerald-500/60 hover:border-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold"
+                    className="w-full h-12 text-xs flex items-center justify-center gap-2 border-2 border-emerald-500/60 hover:border-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold"
                   >
                     <Camera className="w-4 h-4" />
-                    <span>Take Live On-Site Photo 📍</span>
+                    <span>📍 Open Live Camera</span>
                   </Button>
-                  <p className="text-[10px] text-muted-foreground text-center">
-                    Only live camera photos accepted. Your GPS will be verified before submission.
-                  </p>
-                </div>
+                )
+              )}
+
+              {/* GPS note */}
+              {!cameraOpen && (
+                <p className="text-[10px] text-muted-foreground text-center">
+                  Your GPS coordinates will be verified against the report site before submission.
+                </p>
               )}
             </div>
           )}
@@ -473,16 +588,15 @@ export default function StatusUpdateModal({
           )}
         </div>
 
-        {/* Modal Footer Actions */}
+        {/* Modal Footer */}
         <div className="p-4 sm:p-5 border-t border-border/80 bg-secondary/20 flex items-center justify-between gap-2.5">
-          {/* Skip button for optional note (non-rejecting, non-reopening) */}
           {!isRejecting && !isReopening ? (
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => handleSubmit(true)}
-              disabled={isSubmitting || (isResolving && selectedFiles.length === 0)}
+              disabled={isSubmitting || (isResolving && capturedFiles.length === 0) || cameraOpen}
               className="text-xs text-muted-foreground hover:text-foreground"
             >
               Skip Note
@@ -505,11 +619,11 @@ export default function StatusUpdateModal({
               type="button"
               variant="outline"
               size="sm"
-              onClick={onClose}
+              onClick={cameraOpen ? stopCamera : onClose}
               disabled={isSubmitting}
               className="text-xs hidden sm:inline-flex"
             >
-              Cancel
+              {cameraOpen ? 'Close Camera' : 'Cancel'}
             </Button>
 
             <Button
@@ -518,7 +632,8 @@ export default function StatusUpdateModal({
               onClick={() => handleSubmit(false)}
               disabled={
                 isSubmitting ||
-                (isResolving && selectedFiles.length === 0) ||
+                cameraOpen ||
+                (isResolving && capturedFiles.length === 0) ||
                 (isRejecting && note.trim().length < 3) ||
                 (isReopening && note.trim().length < 3)
               }
@@ -533,7 +648,7 @@ export default function StatusUpdateModal({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Submitting...</span>
+                  <span>Submitting…</span>
                 </>
               ) : (
                 <>
