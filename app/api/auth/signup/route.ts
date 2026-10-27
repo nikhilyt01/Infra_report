@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     await connectDB();
 
     const body = await request.json();
-    const { name, email, password, role, phone, managedAreas } = body;
+    const { name, email, password, role, phone, managedAreas, department } = body;
 
     // Validation
     if (!name || !email || !password) {
@@ -36,6 +36,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Generate unique Supervisor code if role is supervisor
+    let supervisorCode: string | undefined = undefined;
+    if (role === 'supervisor') {
+      supervisorCode = `SUP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    }
+
     // Create user
     const user = await User.create({
       name,
@@ -43,6 +49,8 @@ export async function POST(request: NextRequest) {
       password,
       role: role || 'user',
       phone,
+      department: role === 'supervisor' ? (department || 'General Maintenance') : undefined,
+      supervisorCode,
       managedAreas: role === 'manager' ? managedAreas : [],
     });
 
@@ -52,7 +60,8 @@ export async function POST(request: NextRequest) {
         userId: user._id, 
         email: user.email, 
         role: user.role,
-        isApproved: user.isApproved 
+        isApproved: user.isApproved,
+        supervisorCode: user.supervisorCode,
       },
       JWT_SECRET,
       { expiresIn: '7d' }
@@ -65,9 +74,18 @@ export async function POST(request: NextRequest) {
       email: user.email,
       role: user.role,
       isApproved: user.isApproved,
+      supervisorCode: user.supervisorCode,
+      department: user.department,
       phone: user.phone,
       avatar: user.avatar,
     };
+
+    let signupMessage = 'Account created successfully!';
+    if (role === 'manager') {
+      signupMessage = 'Account created! Waiting for admin approval to access manager dashboard.';
+    } else if (role === 'supervisor') {
+      signupMessage = `Supervisor account created! Your Supervisor ID is ${supervisorCode}. Share this with your municipal manager for approval.`;
+    }
 
     // Create response with token
     const response = NextResponse.json({
@@ -76,9 +94,7 @@ export async function POST(request: NextRequest) {
         user: userResponse,
         token,
       },
-      message: role === 'manager' 
-        ? 'Account created! Waiting for admin approval to access manager dashboard.'
-        : 'Account created successfully!',
+      message: signupMessage,
     });
 
     // Set HTTP-only cookie

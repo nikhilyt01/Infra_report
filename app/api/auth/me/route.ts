@@ -39,6 +39,8 @@ export async function GET(request: NextRequest) {
       email: user.email,
       role: user.role,
       isApproved: user.isApproved,
+      supervisorCode: user.supervisorCode,
+      department: user.department,
       phone: user.phone,
       avatar: user.avatar,
       managedAreas: user.managedAreas,

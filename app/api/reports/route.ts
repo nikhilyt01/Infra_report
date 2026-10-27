@@ -43,7 +43,7 @@ export async function GET(request: Request) {
     
     const reports = await Report.find(query)
       .populate('reportedBy', 'name email')
-      .populate('assignedTo', 'name email')
+      .populate('assignedTo', 'name email department supervisorCode')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);

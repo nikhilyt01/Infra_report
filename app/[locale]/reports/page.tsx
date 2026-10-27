@@ -67,7 +67,7 @@ export default function ReportsPage() {
 
       if (data.success) {
         let filteredReports = data.data;
-        
+
         if (filters.search) {
           const searchLower = filters.search.toLowerCase();
           filteredReports = filteredReports.filter((report: Report) =>
@@ -220,11 +220,10 @@ export default function ReportsPage() {
               return (
                 <Card
                   key={report._id}
-                  className={`border hover:shadow-md transition-all cursor-pointer overflow-hidden flex flex-col bg-card group ${
-                    isRejected
-                      ? 'border-rose-400/50 hover:border-rose-400 opacity-80 hover:opacity-100'
-                      : 'border-border/80 hover:border-border'
-                  }`}
+                  className={`border hover:shadow-md transition-all cursor-pointer overflow-hidden flex flex-col bg-card group ${isRejected
+                    ? 'border-rose-400/50 hover:border-rose-400 opacity-80 hover:opacity-100'
+                    : 'border-border/80 hover:border-border'
+                    }`}
                   onClick={() => router.push(`/${locale}/reports/${report._id}`)}
                 >
                   {/* Image with rejected ribbon */}
@@ -233,9 +232,8 @@ export default function ReportsPage() {
                       <img
                         src={report.images[0]}
                         alt={report.title}
-                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${
-                          isRejected ? 'grayscale brightness-50' : ''
-                        }`}
+                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${isRejected ? 'grayscale brightness-50' : ''
+                          }`}
                       />
                       {/* REJECTED ribbon */}
                       {isRejected && (
@@ -270,24 +268,23 @@ export default function ReportsPage() {
 
                   <CardHeader className="p-4 pb-2 space-y-2">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className={`font-semibold text-base transition-colors line-clamp-1 flex-1 ${
-                        isRejected
-                          ? 'text-muted-foreground line-through decoration-rose-400'
-                          : 'text-foreground group-hover:text-primary'
-                      }`}>
+                      <h3 className={`font-semibold text-base transition-colors line-clamp-1 flex-1 ${isRejected
+                        ? 'text-muted-foreground line-through decoration-rose-400'
+                        : 'text-foreground group-hover:text-primary'
+                        }`}>
                         {report.title}
                       </h3>
                       <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${getStatusBadge(report.status)}`}>
+                      <span className={`px-2 py-0.5 rounded text-[14px] font-semibold border ${getStatusBadge(report.status)}`}>
                         {report.status.replace('_', ' ')}
                       </span>
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${getPriorityBadge(report.priority)}`}>
+                      <span className={`px-2 py-0.5 rounded text-[14px] font-semibold border ${getPriorityBadge(report.priority)}`}>
                         {report.priority}
                       </span>
-                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-secondary text-muted-foreground border border-border/60 capitalize">
+                      <span className="px-2 py-0.5 rounded text-[14px] font-medium bg-secondary text-muted-foreground border border-border/60 capitalize">
                         {report.category}
                       </span>
                     </div>
@@ -304,7 +301,7 @@ export default function ReportsPage() {
                           <span>{reasonExpanded ? 'Hide' : 'Show'} rejection reason</span>
                         </button>
                         {reasonExpanded && (
-                          <div className="mt-1.5 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-700 dark:text-rose-300 leading-relaxed">
+                          <div className="mt-1.5 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-800 dark:text-rose-800 leading-relaxed">
                             {report.latestStatusNote}
                           </div>
                         )}
@@ -322,7 +319,7 @@ export default function ReportsPage() {
                     {report.status === 'resolved' && (
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/20">
-                          <CheckCircle className="w-3 h-3" />
+                          <CheckCircle className="w-6 h-6" />
                           Resolved
                         </span>
                         {report.resolutionImages && report.resolutionImages.length > 0 && (

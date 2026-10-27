@@ -58,13 +58,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if supervisor is approved
+    if (user.role === 'supervisor' && !user.isApproved) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: `Your supervisor account is pending approval. Share your Supervisor ID (${user.supervisorCode || 'pending'}) with your municipal manager.`,
+          needsApproval: true,
+          supervisorCode: user.supervisorCode,
+        },
+        { status: 403 }
+      );
+    }
+
     // Generate JWT token
     const token = jwt.sign(
       { 
         userId: user._id, 
         email: user.email, 
         role: user.role,
-        isApproved: user.isApproved 
+        isApproved: user.isApproved,
+        supervisorCode: user.supervisorCode,
       },
       JWT_SECRET,
       { expiresIn: '7d' }
@@ -77,6 +91,8 @@ export async function POST(request: NextRequest) {
       email: user.email,
       role: user.role,
       isApproved: user.isApproved,
+      supervisorCode: user.supervisorCode,
+      department: user.department,
       phone: user.phone,
       avatar: user.avatar,
       managedAreas: user.managedAreas,

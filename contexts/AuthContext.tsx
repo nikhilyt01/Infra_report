@@ -2,20 +2,28 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-interface User {
+export interface User {
   _id: string;
   name: string;
   email: string;
-  role: 'user' | 'manager' | 'admin';
+  role: 'user' | 'manager' | 'admin' | 'supervisor';
   isApproved: boolean;
   isActive: boolean;
+  supervisorCode?: string;
+  department?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string, role: 'user' | 'manager') => Promise<void>;
+  signup: (
+    name: string,
+    email: string,
+    password: string,
+    role: 'user' | 'manager' | 'supervisor',
+    extra?: { department?: string }
+  ) => Promise<any>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
 }
@@ -63,11 +71,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(data.data.user);
   };
 
-  const signup = async (name: string, email: string, password: string, role: 'user' | 'manager') => {
+  const signup = async (
+    name: string,
+    email: string,
+    password: string,
+    role: 'user' | 'manager' | 'supervisor',
+    extra?: { department?: string }
+  ) => {
     const response = await fetch('/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password, role }),
+      body: JSON.stringify({ name, email, password, role, department: extra?.department }),
     });
 
     const data = await response.json();
@@ -80,7 +94,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (role === 'user') {
       await login(email, password);
     }
-    // If manager role, don't auto-login (needs approval)
+    // If manager or supervisor, don't auto-login (needs approval)
+    return data;
   };
 
   const logout = async () => {

@@ -83,6 +83,20 @@ export default async function middleware(req: NextRequest) {
         }
       }
 
+      if (pathname.includes('/dashboard/supervisor')) {
+        if (decoded.role !== 'supervisor' && decoded.role !== 'manager' && decoded.role !== 'admin') {
+          const pathParts = pathname.split('/').filter(Boolean);
+          const locale = ['en', 'hi', 'mr'].includes(pathParts[0]) ? pathParts[0] : 'en';
+          return NextResponse.redirect(new URL(`/${locale}`, req.url));
+        }
+
+        if (decoded.role === 'supervisor' && !decoded.isApproved) {
+          const pathParts = pathname.split('/').filter(Boolean);
+          const locale = ['en', 'hi', 'mr'].includes(pathParts[0]) ? pathParts[0] : 'en';
+          return NextResponse.redirect(new URL(`/${locale}`, req.url));
+        }
+      }
+
       return NextResponse.next();
     } catch (error) {
       const pathParts = req.nextUrl.pathname.split('/').filter(Boolean);

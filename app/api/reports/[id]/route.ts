@@ -83,15 +83,15 @@ export async function PATCH(
         { status: 401 }
       );
     }
-    if (user.role !== 'manager' && user.role !== 'admin') {
+    if (user.role !== 'manager' && user.role !== 'admin' && user.role !== 'supervisor') {
       return NextResponse.json(
-        { success: false, error: 'Only managers and admins can update reports' },
+        { success: false, error: 'Only managers, admins, and supervisors can update reports' },
         { status: 403 }
       );
     }
-    if (user.role === 'manager' && !user.isApproved) {
+    if ((user.role === 'manager' || user.role === 'supervisor') && !user.isApproved) {
       return NextResponse.json(
-        { success: false, error: 'Your manager account is pending admin approval' },
+        { success: false, error: `Your ${user.role} account is pending approval` },
         { status: 403 }
       );
     }
@@ -107,6 +107,22 @@ export async function PATCH(
         { success: false, error: 'Report not found' },
         { status: 404 }
       );
+    }
+
+    // Enforce supervisor permissions: supervisors can only update tickets assigned to them
+    if (user.role === 'supervisor') {
+      if (String(report.assignedTo || '') !== String(user.userId)) {
+        return NextResponse.json(
+          { success: false, error: 'Access denied. You can only act on reports assigned to you.' },
+          { status: 403 }
+        );
+      }
+      if (body.assignedTo !== undefined || body.priority !== undefined || body.status === 'rejected') {
+        return NextResponse.json(
+          { success: false, error: 'Supervisors can only update work progress or resolve their assigned task.' },
+          { status: 403 }
+        );
+      }
     }
 
     // Retrieve full actor details from DB

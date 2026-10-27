@@ -18,7 +18,8 @@ import {
   X,
   LayoutDashboard,
   FileText,
-  User
+  User,
+  ClipboardCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
@@ -126,6 +127,20 @@ export default function Navbar() {
                   <FileText className="w-4 h-4" />
                   <span>My Reports</span>
                 </Link>
+
+                {user.role === 'supervisor' && user.isApproved && (
+                  <Link 
+                    href={`/${locale}/dashboard/supervisor`} 
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      isActive(`/${locale}/dashboard/supervisor`)
+                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold border border-amber-500/20 shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    <ClipboardCheck className="w-4 h-4 text-amber-500" />
+                    <span>My Work Orders</span>
+                  </Link>
+                )}
                 
                 {user.role === 'manager' && user.isApproved && (
                   <Link 
@@ -302,6 +317,21 @@ export default function Navbar() {
                 <FileText className="w-4 h-4" />
                 <span>My Reports</span>
               </Link>
+
+              {user.role === 'supervisor' && user.isApproved && (
+                <Link
+                  href={`/${locale}/dashboard/supervisor`}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium ${
+                    isActive(`/${locale}/dashboard/supervisor`)
+                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold'
+                      : 'text-foreground hover:bg-secondary'
+                  }`}
+                >
+                  <ClipboardCheck className="w-4 h-4 text-amber-500" />
+                  <span>My Work Orders</span>
+                </Link>
+              )}
 
               {user.role === 'manager' && user.isApproved && (
                 <Link

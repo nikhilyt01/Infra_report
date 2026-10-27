@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import IssueProgressBar from '@/components/IssueProgressBar';
@@ -16,7 +17,8 @@ import {
   BarChart3, Clock, TrendingUp, CheckCircle, 
   RotateCcw, Filter, MapPin, User, ThumbsUp, 
   Check, ArrowUpRight, Loader2, ShieldCheck, AlertCircle,
-  Camera, Eye
+  Camera, Eye, Bell, Search, UserCheck, UserX, X,
+  Wrench, Copy, Sparkles, UserPlus, Users
 } from 'lucide-react';
 
 interface Report {
@@ -36,6 +38,13 @@ interface Report {
     icon: string;
   };
   upvotes: number;
+  assignedTo?: {
+    _id: string;
+    name: string;
+    email: string;
+    department?: string;
+    supervisorCode?: string;
+  };
   approvedBy?: {
     _id: string;
     name: string;
@@ -48,6 +57,18 @@ interface Report {
     type: 'Point';
     coordinates: [number, number]; // [longitude, latitude]
   };
+}
+
+interface SupervisorItem {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  isApproved: boolean;
+  supervisorCode?: string;
+  department?: string;
+  createdAt: string;
+  approvedAt?: string;
 }
 
 interface Analytics {
@@ -71,6 +92,14 @@ export default function ManagerDashboard() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [areaFilter, setAreaFilter] = useState('all');
 
+  // Notifications & Approvals Hub State
+  const [showNotificationsHub, setShowNotificationsHub] = useState(false);
+  const [notificationTab, setNotificationTab] = useState<'general' | 'approvals'>('approvals');
+  const [supervisors, setSupervisors] = useState<SupervisorItem[]>([]);
+  const [supervisorsLoading, setSupervisorsLoading] = useState(false);
+  const [supervisorSearch, setSupervisorSearch] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   // Evidence-gated status modal state
   const [modalReport, setModalReport] = useState<{
     id: string;
@@ -82,6 +111,7 @@ export default function ManagerDashboard() {
 
   useEffect(() => {
     fetchDashboardData();
+    fetchSupervisors();
   }, [statusFilter, areaFilter]);
 
   const fetchDashboardData = async () => {
@@ -112,6 +142,84 @@ export default function ManagerDashboard() {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSupervisors = async (query = '') => {
+    setSupervisorsLoading(true);
+    try {
+      const url = `/api/manager/supervisors${query ? `?search=${encodeURIComponent(query)}` : ''}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) {
+        setSupervisors(data.data || []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch supervisors:', e);
+    } finally {
+      setSupervisorsLoading(false);
+    }
+  };
+
+  const handleSearchSupervisors = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchSupervisors(supervisorSearch.trim());
+  };
+
+  const handleApproveSupervisor = async (supId: string) => {
+    try {
+      const res = await fetch(`/api/manager/supervisors/${supId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message || 'Supervisor approved!', 'Supervisor Activated');
+        fetchSupervisors(supervisorSearch.trim());
+      } else {
+        toast.error(data.error || 'Failed to approve supervisor');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Error approving supervisor');
+    }
+  };
+
+  const handleRevokeSupervisor = async (supId: string) => {
+    try {
+      const res = await fetch(`/api/manager/supervisors/${supId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.info(data.message || 'Supervisor access revoked.', 'Access Revoked');
+        fetchSupervisors(supervisorSearch.trim());
+      } else {
+        toast.error(data.error || 'Failed to revoke supervisor');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Error revoking supervisor');
+    }
+  };
+
+  const handleAssignReport = async (reportId: string, supervisorId: string) => {
+    try {
+      const response = await fetch(`/api/reports/${reportId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignedTo: supervisorId || null }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success(supervisorId ? 'Work order assigned to field supervisor!' : 'Work order unassigned', 'Assignment Updated');
+        fetchDashboardData();
+      } else {
+        toast.error(data.error || 'Failed to update assignment');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Error updating assignment');
     }
   };
 
@@ -162,6 +270,25 @@ export default function ManagerDashboard() {
     }
   };
 
+  // Filter approved supervisors for the assignment dropdown
+  const approvedSupervisors = useMemo(() => {
+    return supervisors.filter((s) => s.isApproved);
+  }, [supervisors]);
+
+  // Pending supervisor count
+  const pendingSupervisors = useMemo(() => {
+    return supervisors.filter((s) => !s.isApproved);
+  }, [supervisors]);
+
+  // General notifications: Auto-escalated tickets or urgent unassigned tickets
+  const generalAlerts = useMemo(() => {
+    const escalated = reports.filter((r) => (r.upvotes || 0) >= 2 || r.priority === 'urgent');
+    const unapproved = reports.filter((r) => r.status === 'submitted' && !r.approvedBy);
+    return { escalated, unapproved };
+  }, [reports]);
+
+  const totalNotifications = pendingSupervisors.length + generalAlerts.escalated.length;
+
   const getStatusBadge = (status: string) => {
     const map: Record<string, string> = {
       submitted: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
@@ -205,20 +332,286 @@ export default function ManagerDashboard() {
               <span>City Manager Operations</span>
             </h1>
             <p className="text-sm text-muted-foreground">
-              Review incoming citizen tickets, approve work orders, and assign repair teams
+              Review incoming citizen tickets, approve work orders, and assign field repair teams
             </p>
           </div>
 
-          <Button
-            onClick={fetchDashboardData}
-            variant="outline"
-            size="sm"
-            className="self-start sm:self-auto flex items-center gap-2 text-xs font-medium"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Refresh Tickets</span>
-          </Button>
+          <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+            {/* Notification & Approval Hub Button */}
+            <Button
+              onClick={() => setShowNotificationsHub(!showNotificationsHub)}
+              variant={showNotificationsHub ? 'default' : 'outline'}
+              size="sm"
+              className="flex items-center gap-2 text-xs font-semibold relative"
+            >
+              <Bell className="w-3.5 h-3.5 text-amber-500" />
+              <span>Notifications & Approvals</span>
+              {totalNotifications > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
+                  {totalNotifications}
+                </span>
+              )}
+            </Button>
+
+            <Button
+              onClick={() => {
+                fetchDashboardData();
+                fetchSupervisors();
+              }}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 text-xs font-medium"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Refresh</span>
+            </Button>
+          </div>
         </div>
+
+        {/* Notifications & Supervisor Approval Hub (Expandable Card) */}
+        {showNotificationsHub && (
+          <Card className="border-2 border-amber-500/40 shadow-lg bg-card/95 backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-2">
+            <CardHeader className="p-4 sm:p-5 pb-3 border-b border-border/60">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                    <Bell className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-bold text-foreground">
+                      Operations Notifications & Approvals Hub
+                    </CardTitle>
+                    <p className="text-[11px] text-muted-foreground">
+                      Search supervisor IDs to activate field accounts and review community escalated tickets
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowNotificationsHub(false)}
+                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex items-center gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setNotificationTab('approvals')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    notificationTab === 'approvals'
+                      ? 'bg-amber-500 text-gray-950 shadow-xs'
+                      : 'bg-secondary/60 text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>Supervisor Approvals</span>
+                  {pendingSupervisors.length > 0 && (
+                    <span className="ml-1 px-1.5 py-0.2 bg-rose-600 text-white rounded-full text-[10px]">
+                      {pendingSupervisors.length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setNotificationTab('general')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    notificationTab === 'general'
+                      ? 'bg-primary text-primary-foreground shadow-xs'
+                      : 'bg-secondary/60 text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>General Alerts</span>
+                  {generalAlerts.escalated.length > 0 && (
+                    <span className="ml-1 px-1.5 py-0.2 bg-amber-500 text-gray-950 rounded-full text-[10px]">
+                      {generalAlerts.escalated.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-4 sm:p-5">
+              {/* TAB 1: SUPERVISOR APPROVALS */}
+              {notificationTab === 'approvals' && (
+                <div className="space-y-4">
+                  {/* Search Bar for Supervisor ID */}
+                  <form onSubmit={handleSearchSupervisors} className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        type="text"
+                        value={supervisorSearch}
+                        onChange={(e) => setSupervisorSearch(e.target.value)}
+                        placeholder="Paste or search by Supervisor ID (e.g. SUP-XXXXXX), Name, Email..."
+                        className="pl-9 text-xs h-9 bg-background border-border/80 uppercase font-mono tracking-wider"
+                      />
+                    </div>
+                    <Button type="submit" size="sm" className="text-xs h-9 px-4">
+                      Search
+                    </Button>
+                    {supervisorSearch && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSupervisorSearch('');
+                          fetchSupervisors('');
+                        }}
+                        className="text-xs h-9 px-3"
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </form>
+
+                  {/* Supervisor List */}
+                  {supervisorsLoading ? (
+                    <div className="py-8 flex items-center justify-center gap-2 text-muted-foreground text-xs">
+                      <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                      <span>Searching supervisor directory...</span>
+                    </div>
+                  ) : supervisors.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-muted-foreground bg-secondary/30 rounded-xl border border-dashed border-border/80">
+                      No supervisors found matching your search. Field supervisors can sign up on the registration page to generate an ID.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
+                      {supervisors.map((sup) => (
+                        <div
+                          key={sup._id}
+                          className="p-3.5 rounded-xl border border-border/80 bg-background/80 hover:border-amber-500/40 transition-all flex flex-col justify-between gap-3 shadow-xs"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {/* Supervisor ID Monospace Badge */}
+                                <span className="font-mono text-xs font-black tracking-wider px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                                  <span>{sup.supervisorCode || 'NO-ID'}</span>
+                                  {sup.supervisorCode && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(sup.supervisorCode || '');
+                                        setCopiedId(sup._id);
+                                        setTimeout(() => setCopiedId(null), 2000);
+                                      }}
+                                      title="Copy ID"
+                                    >
+                                      {copiedId === sup._id ? (
+                                        <Check className="w-3 h-3 text-emerald-500" />
+                                      ) : (
+                                        <Copy className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                                      )}
+                                    </button>
+                                  )}
+                                </span>
+
+                                {/* Approval Status Badge */}
+                                <span
+                                  className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                                    sup.isApproved
+                                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                                      : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                                  }`}
+                                >
+                                  {sup.isApproved ? 'Approved & Active' : 'Pending Approval'}
+                                </span>
+                              </div>
+
+                              <p className="text-xs font-bold text-foreground">{sup.name}</p>
+                              <p className="text-[11px] text-muted-foreground">{sup.email}</p>
+                              {sup.department && (
+                                <p className="text-[10px] text-primary font-medium">
+                                  Department: {sup.department}
+                                </p>
+                              )}
+                            </div>
+
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                              {new Date(sup.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
+                            {!sup.isApproved ? (
+                              <Button
+                                size="sm"
+                                onClick={() => handleApproveSupervisor(sup._id)}
+                                className="text-xs h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1"
+                              >
+                                <Check className="w-3 h-3" />
+                                <span>Approve & Activate</span>
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRevokeSupervisor(sup._id)}
+                                className="text-xs h-7 px-2.5 text-rose-600 hover:bg-rose-500/10 border-rose-500/30 gap-1"
+                              >
+                                <UserX className="w-3 h-3" />
+                                <span>Revoke</span>
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 2: GENERAL NOTIFICATIONS */}
+              {notificationTab === 'general' && (
+                <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                  {generalAlerts.escalated.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-muted-foreground">
+                      No community escalated or urgent priority tickets right now.
+                    </div>
+                  ) : (
+                    generalAlerts.escalated.map((rep) => (
+                      <div
+                        key={rep._id}
+                        className="p-3 rounded-xl border border-border/80 bg-background/80 flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="space-y-0.5 flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                              {rep.priority}
+                            </span>
+                            <span className="font-semibold text-foreground truncate">
+                              {rep.title}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              (👍 {rep.upvotes} upvotes)
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground truncate">{rep.address}</p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Link
+                            href={`/${locale}/reports/${rep._id}`}
+                            className="text-primary hover:underline text-xs font-semibold flex items-center gap-1"
+                          >
+                            <span>Inspect</span>
+                            <ArrowUpRight className="w-3 h-3" />
+                          </Link>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Analytics Snapshot Grid */}
         {analytics && (
@@ -269,9 +662,9 @@ export default function ManagerDashboard() {
                   <CheckCircle className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground font-medium">Resolution Rate</p>
+                  <p className="text-xs text-muted-foreground font-medium">Resolved Rate</p>
                   <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                    {analytics.resolutionRate.toFixed(1)}%
+                    {analytics.resolutionRate}%
                   </p>
                 </div>
               </CardContent>
@@ -279,56 +672,77 @@ export default function ManagerDashboard() {
           </div>
         )}
 
-        {/* Filter Controls Bar */}
+        {/* Filter Bar */}
         <Card className="border border-border/80 shadow-xs bg-card">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-xs font-semibold text-foreground mt-2">
-                <Filter className="w-4 h-4 text-primary " />
-                <span>Filter Queue:</span>
-              </div>
+          <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <Filter className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs font-semibold text-foreground">Filter Queue:</span>
+            </div>
 
-              <div className="flex flex-col sm:flex-row items-center gap-3 mt-2">
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              {/* Status Filter */}
+              <div className="flex-1 sm:w-44">
                 <Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="h-9 text-xs w-full sm:w-44"
+                  className="w-full text-xs h-9 bg-card border-border/80"
                 >
                   <option value="all">All Statuses</option>
                   <option value="submitted">Submitted</option>
                   <option value="under_review">Under Review</option>
                   <option value="in_progress">In Progress</option>
                   <option value="resolved">Resolved</option>
-                  <option value="closed">Closed</option>
                   <option value="rejected">Rejected</option>
                 </Select>
+              </div>
 
+              {/* Area Filter */}
+              <div className="flex-1 sm:w-44">
                 <Select
                   value={areaFilter}
                   onChange={(e) => setAreaFilter(e.target.value)}
-                  className="h-9 text-xs w-full sm:w-44"
+                  className="w-full text-xs h-9 bg-card border-border/80"
                 >
                   <option value="all">All Wards / Areas</option>
-                  <option value="Ward 1">Ward 1</option>
-                  <option value="Ward 2">Ward 2</option>
-                  <option value="Ward 3">Ward 3</option>
-                  <option value="Ward 4">Ward 4</option>
-                  <option value="Ward 5">Ward 5</option>
+                  <option value="Central">Central Ward</option>
+                  <option value="North">North Ward</option>
+                  <option value="South">South Ward</option>
+                  <option value="East">East Ward</option>
+                  <option value="West">West Ward</option>
                 </Select>
               </div>
+
+              {/* Reset Filter Button */}
+              {(statusFilter !== 'all' || areaFilter !== 'all') && (
+                <Button
+                  onClick={() => {
+                    setStatusFilter('all');
+                    setAreaFilter('all');
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-9 text-muted-foreground hover:text-foreground"
+                >
+                  Reset
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Reports Table Card */}
+        {/* Queue Reports Table */}
         <Card className="border border-border/80 shadow-xs bg-card overflow-hidden">
-          <CardHeader className="p-5 pb-3 border-b border-border/60 flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-base font-semibold text-foreground">
-                Assigned Reports Queue ({reports.length})
+          <CardHeader className="p-5 pb-4 border-b border-border/60 flex flex-row items-center justify-between">
+            <div className="space-y-0.5">
+              <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                <span>Infrastructure Reports Queue</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  ({reports.length} records)
+                </span>
               </CardTitle>
               <CardDescription className="text-xs">
-                Inspect details, verify civic hazards, and update resolution lifecycle states
+                Inspect details, assign approved field supervisors, and manage resolution lifecycle
               </CardDescription>
             </div>
           </CardHeader>
@@ -350,7 +764,7 @@ export default function ManagerDashboard() {
               <div>
                 {/* Desktop Data Table View */}
                 <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left text-xs min-w-[900px]">
+                  <table className="w-full text-left text-xs min-w-[1050px]">
                     <thead className="bg-secondary/40 border-b border-border/60 text-muted-foreground font-semibold uppercase text-[11px] tracking-wider">
                       <tr>
                         <th className="py-3 px-4">Issue Details</th>
@@ -358,6 +772,7 @@ export default function ManagerDashboard() {
                         <th className="py-3 px-3">Priority</th>
                         <th className="py-3 px-3">Ward / Area</th>
                         <th className="py-3 px-3">Reporter</th>
+                        <th className="py-3 px-3">Assigned Supervisor</th>
                         <th className="py-3 px-3">Approval</th>
                         <th className="py-3 px-3">Votes</th>
                         <th className="py-3 px-4 text-right">Lifecycle Action</th>
@@ -407,7 +822,24 @@ export default function ManagerDashboard() {
                             {report.reportedBy?.name || 'Citizen'}
                           </td>
 
-                          {/* Approved By */}
+                          {/* Assigned Supervisor Dropdown */}
+                          <td className="py-3.5 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            <Select
+                              value={report.assignedTo?._id || ''}
+                              onChange={(e) => handleAssignReport(report._id, e.target.value)}
+                              className="h-7 text-[11px] w-36 bg-card border-border/80"
+                              aria-label="Assign supervisor"
+                            >
+                              <option value="">Unassigned</option>
+                              {approvedSupervisors.map((sup) => (
+                                <option key={sup._id} value={sup._id}>
+                                  {sup.name} ({sup.department || 'Field'})
+                                </option>
+                              ))}
+                            </Select>
+                          </td>
+
+                          {/* Approval */}
                           <td className="py-3.5 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                             {report.approvedBy ? (
                               <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 text-xs">
@@ -431,27 +863,15 @@ export default function ManagerDashboard() {
                             👍 {report.upvotes || 0}
                           </td>
 
-                          {/* Action Select */}
+                          {/* Lifecycle Actions */}
                           <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1.5">
-                              {/* Quick Action Buttons */}
-                              {['submitted', 'under_review'].includes(report.status) && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => openStatusModal(report, 'in_progress')}
-                                  className="h-7 text-[11px] px-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/20"
-                                >
-                                  Start Work
-                                </Button>
-                              )}
-
+                              {/* Direct Resolve button for In Progress reports */}
                               {report.status === 'in_progress' && (
                                 <Button
                                   size="sm"
-                                  variant="outline"
                                   onClick={() => openStatusModal(report, 'resolved')}
-                                  className="h-7 text-[11px] px-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 font-semibold flex items-center gap-1"
+                                  className="h-7 text-[11px] px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium flex items-center gap-1 shadow-xs"
                                 >
                                   <Camera className="w-3 h-3" />
                                   <span>Resolve</span>
@@ -542,6 +962,24 @@ export default function ManagerDashboard() {
                         <span className="text-[11px] truncate">By {report.reportedBy?.name || 'Citizen'}</span>
                         <span>•</span>
                         <span className="text-[11px] font-semibold text-foreground">👍 {report.upvotes || 0}</span>
+                      </div>
+
+                      {/* Field Supervisor Assignment on Mobile */}
+                      <div className="flex items-center justify-between gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+                        <span className="text-xs text-muted-foreground font-medium">Supervisor:</span>
+                        <Select
+                          value={report.assignedTo?._id || ''}
+                          onChange={(e) => handleAssignReport(report._id, e.target.value)}
+                          className="h-7 text-[11px] w-44 bg-card border-border/80"
+                          aria-label="Assign supervisor"
+                        >
+                          <option value="">Unassigned</option>
+                          {approvedSupervisors.map((sup) => (
+                            <option key={sup._id} value={sup._id}>
+                              {sup.name} ({sup.department || 'Field'})
+                            </option>
+                          ))}
+                        </Select>
                       </div>
 
                       {/* Actions Bar */}

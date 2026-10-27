@@ -1,7 +1,7 @@
 import mongoose, { Schema, Model, models } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-export type UserRole = 'user' | 'manager' | 'admin';
+export type UserRole = 'user' | 'manager' | 'admin' | 'supervisor';
 
 export interface IUser {
   _id?: string;
@@ -12,10 +12,12 @@ export interface IUser {
   phone?: string;
   avatar?: string;
   managedAreas?: string[]; // For manager: array of area/ward IDs they manage
+  department?: string; // For supervisor: department e.g. Roads, Sanitation, Water, Electrical
+  supervisorCode?: string; // Unique shareable code for supervisor approval (e.g. SUP-XXXXXX)
   municipalityId?: string; // Reference to Municipality
   isActive?: boolean;
-  isApproved?: boolean; // For managers: needs admin approval
-  approvedBy?: string; // Admin who approved the manager
+  isApproved?: boolean; // For managers and supervisors: needs admin/manager approval
+  approvedBy?: string; // Admin or Manager who approved
   approvedAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
@@ -44,7 +46,7 @@ const UserSchema = new Schema<IUser>(
     },
     role: {
       type: String,
-      enum: ['user', 'manager', 'admin'],
+      enum: ['user', 'manager', 'admin', 'supervisor'],
       default: 'user',
       required: true,
     },
@@ -54,6 +56,17 @@ const UserSchema = new Schema<IUser>(
     },
     avatar: {
       type: String,
+    },
+    department: {
+      type: String,
+      trim: true,
+    },
+    supervisorCode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      sparse: true,
+      index: true,
     },
     managedAreas: {
       type: [String],
@@ -69,8 +82,8 @@ const UserSchema = new Schema<IUser>(
     isApproved: {
       type: Boolean,
       default: function(this: IUser) {
-        // Auto-approve users and admins, managers need approval
-        return this.role !== 'manager';
+        // Auto-approve users and admins; managers and supervisors need approval
+        return this.role !== 'manager' && this.role !== 'supervisor';
       },
     },
     approvedBy: {
