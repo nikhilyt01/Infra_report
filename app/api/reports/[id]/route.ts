@@ -68,7 +68,7 @@ export async function GET(
   }
 }
 
-// PATCH /api/reports/[id] - Update report (managers and admins only)
+// PATCH /api/reports/[id] - Update report (managers, admins, and assigned supervisors)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -76,27 +76,51 @@ export async function PATCH(
   try {
     // The global middleware skips /api entirely, so this route has to gate
     // itself — otherwise anyone could change any report's status or priority.
-    const user = getUserFromToken(request);
-    if (!user) {
+    const tokenUser = getUserFromToken(request);
+    if (!tokenUser) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
-    if (user.role !== 'manager' && user.role !== 'admin' && user.role !== 'supervisor') {
+
+    await connectDB();
+
+    // Always fetch the LIVE user record from DB so stale JWT tokens
+    // (e.g. role changed from 'user' to 'supervisor' directly in DB)
+    // don't cause false 403s.
+    const liveUser = await User.findById(tokenUser.userId).select('name email role isApproved supervisorCode department');
+    if (!liveUser) {
+      return NextResponse.json(
+        { success: false, error: 'User account not found' },
+        { status: 401 }
+      );
+    }
+
+    const userRole = liveUser.role;
+    const userIsApproved = liveUser.isApproved;
+
+    if (userRole !== 'manager' && userRole !== 'admin' && userRole !== 'supervisor') {
       return NextResponse.json(
         { success: false, error: 'Only managers, admins, and supervisors can update reports' },
         { status: 403 }
       );
     }
-    if ((user.role === 'manager' || user.role === 'supervisor') && !user.isApproved) {
+    if ((userRole === 'manager' || userRole === 'supervisor') && !userIsApproved) {
       return NextResponse.json(
-        { success: false, error: `Your ${user.role} account is pending approval` },
+        { success: false, error: `Your ${userRole} account is pending approval` },
         { status: 403 }
       );
     }
 
-    await connectDB();
+    // Build a unified user object for the rest of the handler
+    const user = {
+      userId: tokenUser.userId,
+      email: liveUser.email,
+      role: userRole,
+      isApproved: userIsApproved,
+    };
+
     const { id } = await params;
     const body = await request.json();
 
@@ -117,9 +141,10 @@ export async function PATCH(
           { status: 403 }
         );
       }
-      if (body.assignedTo !== undefined || body.priority !== undefined || body.status === 'rejected') {
+      // Supervisors cannot reassign or change priority, but CAN reject and resolve
+      if (body.assignedTo !== undefined || body.priority !== undefined) {
         return NextResponse.json(
-          { success: false, error: 'Supervisors can only update work progress or resolve their assigned task.' },
+          { success: false, error: 'Supervisors cannot reassign reports or change priority.' },
           { status: 403 }
         );
       }

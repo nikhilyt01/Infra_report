@@ -3,23 +3,26 @@
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useState } from 'react';
 import { 
   Home, 
   Map, 
-  FolderOpen,
+  FolderOpen, 
   MapPin, 
-  Plus,
-  LogIn,
-  Construction,
-  LogOut,
-  Shield,
-  Menu,
-  X,
-  LayoutDashboard,
-  FileText,
-  User,
-  ClipboardCheck
+  Plus, 
+  LogIn, 
+  Construction, 
+  LogOut, 
+  Shield, 
+  Menu, 
+  X, 
+  LayoutDashboard, 
+  FileText, 
+  User, 
+  ClipboardCheck,
+  Copy,
+  Check
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
@@ -29,7 +32,21 @@ export default function Navbar() {
   const router = useRouter();
   const locale = (params.locale as string) || 'en';
   const { user, logout } = useAuth();
+  const { toast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [copiedSupervisorId, setCopiedSupervisorId] = useState(false);
+
+  const handleCopySupervisorId = () => {
+    if (user?.supervisorCode) {
+      navigator.clipboard.writeText(user.supervisorCode);
+      setCopiedSupervisorId(true);
+      setTimeout(() => setCopiedSupervisorId(false), 2000);
+      toast.success(
+        `Supervisor ID (${user.supervisorCode}) copied to clipboard! Share with your Municipal Admin for approval.`,
+        'ID Copied'
+      );
+    }
+  };
   
   const handleLogout = async () => {
     await logout();
@@ -128,7 +145,7 @@ export default function Navbar() {
                   <span>My Reports</span>
                 </Link>
 
-                {user.role === 'supervisor' && user.isApproved && (
+                {user.role === 'supervisor' && (
                   <Link 
                     href={`/${locale}/dashboard/supervisor`} 
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -139,6 +156,11 @@ export default function Navbar() {
                   >
                     <ClipboardCheck className="w-4 h-4 text-amber-500" />
                     <span>My Work Orders</span>
+                    {!user.isApproved && (
+                      <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold border border-amber-500/30">
+                        Pending
+                      </span>
+                    )}
                   </Link>
                 )}
                 
@@ -202,8 +224,16 @@ export default function Navbar() {
               </div>
             ) : (
               <div className="flex items-center gap-2 pl-2 border-l border-border/80">
-                <div className="flex items-center gap-2 px-2.5 py-1 bg-secondary/60 rounded-lg border border-border/60">
-                  <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[11px] font-bold">
+                <div 
+                  className={`flex items-center gap-2 px-2.5 py-1 bg-secondary/60 rounded-lg border border-border/60 ${
+                    user.role === 'supervisor' ? 'cursor-pointer hover:border-amber-500/50 hover:bg-secondary/90 transition-all' : ''
+                  }`}
+                  onClick={user.role === 'supervisor' ? handleCopySupervisorId : undefined}
+                  title={user.role === 'supervisor' ? `Click to copy Supervisor ID (${user.supervisorCode || 'Generating...'})` : undefined}
+                >
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                    user.role === 'supervisor' ? 'bg-amber-500 text-gray-950 shadow-xs' : 'bg-primary text-primary-foreground'
+                  }`}>
                     {user.name?.[0]?.toUpperCase() || 'U'}
                   </div>
                   <div className="flex flex-col text-left">
@@ -213,6 +243,18 @@ export default function Navbar() {
                     <span className="text-[10px] text-muted-foreground capitalize leading-tight">
                       {user.role}
                     </span>
+                    {user.role === 'supervisor' && user.supervisorCode && (
+                      <span
+                        className="text-[9px] font-mono font-bold text-amber-500 flex items-center gap-1 hover:text-amber-400 transition-colors leading-tight"
+                      >
+                        <span>ID: {user.supervisorCode}</span>
+                        {copiedSupervisorId ? (
+                          <Check className="w-2.5 h-2.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-2.5 h-2.5 text-amber-500/70" />
+                        )}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -318,18 +360,25 @@ export default function Navbar() {
                 <span>My Reports</span>
               </Link>
 
-              {user.role === 'supervisor' && user.isApproved && (
+              {user.role === 'supervisor' && (
                 <Link
                   href={`/${locale}/dashboard/supervisor`}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium ${
+                  className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium ${
                     isActive(`/${locale}/dashboard/supervisor`)
                       ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold'
                       : 'text-foreground hover:bg-secondary'
                   }`}
                 >
-                  <ClipboardCheck className="w-4 h-4 text-amber-500" />
-                  <span>My Work Orders</span>
+                  <div className="flex items-center gap-2.5">
+                    <ClipboardCheck className="w-4 h-4 text-amber-500" />
+                    <span>My Work Orders</span>
+                  </div>
+                  {!user.isApproved && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold border border-amber-500/30">
+                      Pending
+                    </span>
+                  )}
                 </Link>
               )}
 
@@ -384,14 +433,31 @@ export default function Navbar() {
                 </Link>
               </>
             ) : (
-              <div className="flex items-center justify-between p-2 bg-secondary/60 rounded-lg">
+              <div 
+                className={`flex items-center justify-between p-2 bg-secondary/60 rounded-lg ${
+                  user.role === 'supervisor' ? 'cursor-pointer hover:bg-secondary/90 transition-all' : ''
+                }`}
+                onClick={user.role === 'supervisor' ? handleCopySupervisorId : undefined}
+              >
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                    user.role === 'supervisor' ? 'bg-amber-500 text-gray-950 shadow-xs' : 'bg-primary text-primary-foreground'
+                  }`}>
                     {user.name?.[0]?.toUpperCase() || 'U'}
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-foreground">{user.name}</p>
                     <p className="text-[10px] text-muted-foreground capitalize">{user.role}</p>
+                    {user.role === 'supervisor' && user.supervisorCode && (
+                      <p className="text-[9px] font-mono font-bold text-amber-500 flex items-center gap-1">
+                        <span>ID: {user.supervisorCode}</span>
+                        {copiedSupervisorId ? (
+                          <Check className="w-2.5 h-2.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-2.5 h-2.5 text-amber-500/70" />
+                        )}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <Button

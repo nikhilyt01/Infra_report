@@ -26,8 +26,18 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(formData.email, formData.password);
-      router.push('/en');
+      const loggedInUser = await login(formData.email, formData.password);
+      
+      // Role-aware redirect
+      if (loggedInUser.role === 'supervisor' && loggedInUser.isApproved) {
+        router.push('/en/dashboard/supervisor');
+      } else if (loggedInUser.role === 'manager' && loggedInUser.isApproved) {
+        router.push('/en/dashboard/manager');
+      } else if (loggedInUser.role === 'admin') {
+        router.push('/en/admin');
+      } else {
+        router.push('/en');
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {

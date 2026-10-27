@@ -168,6 +168,24 @@ export default function ReportDetailPage() {
     user && (user.role === 'admin' || (user.role === 'manager' && user.isApproved))
   );
 
+  // Supervisor permissions
+  const isSupervisor = Boolean(user && user.role === 'supervisor');
+  const assignedSupervisorId = report?.assignedTo
+    ? (typeof report.assignedTo === 'object'
+        ? (report.assignedTo as any)._id?.toString() || (report.assignedTo as any).id?.toString()
+        : String(report.assignedTo))
+    : null;
+  const isAssignedSupervisor = Boolean(
+    isSupervisor &&
+    user?.isApproved &&
+    assignedSupervisorId &&
+    user?._id &&
+    assignedSupervisorId === String(user._id)
+  );
+
+  // Can the current user see the lifecycle controls card at all?
+  const canSeeControls = isManagerOrAdmin || (isSupervisor && user?.isApproved);
+
   const handleApprove = async () => {
     if (!user || !report) return;
     setIsActionLoading(true);
@@ -434,116 +452,139 @@ export default function ReportDetailPage() {
               <CardContent className="p-5">
                 <IssueProgressBar status={report.status} showLabels={true} size="lg" />
 
-                {/* Manager/Admin Lifecycle Action Controls */}
-                {isManagerOrAdmin && (
+                {/* Manager/Admin/Supervisor Lifecycle Action Controls */}
+                {canSeeControls && (
                   <div className="pt-4 mt-4 border-t border-border/60 space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                         <ShieldAlert className="w-3.5 h-3.5 text-primary" />
                         <span>Authorized Lifecycle Controls</span>
                       </span>
-                      <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded font-mono capitalize">
-                        {user?.role}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {isAssignedSupervisor && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                            Assigned Supervisor
+                          </span>
+                        )}
+                        <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded font-mono capitalize">
+                          {user?.role}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      {report.status === 'submitted' && (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={handleApprove}
-                            disabled={isActionLoading}
-                            className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Approve Report</span>
-                          </Button>
+                    {/* If supervisor but NOT assigned to this report, show warning */}
+                    {isSupervisor && !isAssignedSupervisor && (
+                      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/5 border border-amber-500/30 text-amber-700 dark:text-amber-400">
+                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                        <p className="text-[11px] leading-relaxed">
+                          This work order is not assigned to your queue. Only the assigned field supervisor or municipal manager can make changes.
+                        </p>
+                      </div>
+                    )}
 
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setModalTargetStatus('in_progress')}
-                            className="text-xs bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/20"
-                          >
-                            Start Work (In Progress)
-                          </Button>
+                    {/* Only show action buttons if manager/admin OR if supervisor is assigned */}
+                    {(isManagerOrAdmin || isAssignedSupervisor) && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        {report.status === 'submitted' && (
+                          <>
+                            {/* Only managers/admins can approve reports */}
+                            {isManagerOrAdmin && (
+                              <Button
+                                size="sm"
+                                onClick={handleApprove}
+                                disabled={isActionLoading}
+                                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Approve Report</span>
+                              </Button>
+                            )}
 
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setModalTargetStatus('rejected')}
-                            className="text-xs text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
-                          >
-                            Reject Report
-                          </Button>
-                        </>
-                      )}
-
-                      {report.status === 'under_review' && (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={() => setModalTargetStatus('in_progress')}
-                            className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 font-medium"
-                          >
-                            <TrendingUp className="w-3.5 h-3.5" />
-                            <span>Start Field Work (In Progress)</span>
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setModalTargetStatus('rejected')}
-                            className="text-xs text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
-                          >
-                            Reject Report
-                          </Button>
-                        </>
-                      )}
-
-                      {report.status === 'in_progress' && (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={() => setModalTargetStatus('resolved')}
-                            className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 font-semibold shadow-xs"
-                          >
-                            <Camera className="w-3.5 h-3.5" />
-                            <span>Resolve Issue (Upload Photo Evidence)</span>
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setModalTargetStatus('rejected')}
-                            className="text-xs text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
-                          >
-                            Reject Report
-                          </Button>
-                        </>
-                      )}
-
-                      {['resolved', 'rejected'].includes(report.status) && (
-                        <>
-                          {user?.role === 'admin' ? (
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => setModalTargetStatus('in_progress')}
-                              className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20 flex items-center gap-1.5 font-medium"
+                              className="text-xs bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/20"
                             >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                              <span>Reopen Ticket (Admin Audit)</span>
+                              Start Work (In Progress)
                             </Button>
-                          ) : (
-                            <p className="text-[11px] text-muted-foreground italic">
-                              Report finalized. Only system administrators can reopen resolved or rejected reports.
-                            </p>
-                          )}
-                        </>
-                      )}
-                    </div>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setModalTargetStatus('rejected')}
+                              className="text-xs text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
+                            >
+                              Reject Report
+                            </Button>
+                          </>
+                        )}
+
+                        {report.status === 'under_review' && (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() => setModalTargetStatus('in_progress')}
+                              className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 font-medium"
+                            >
+                              <TrendingUp className="w-3.5 h-3.5" />
+                              <span>Start Field Work (In Progress)</span>
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setModalTargetStatus('rejected')}
+                              className="text-xs text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
+                            >
+                              Reject Report
+                            </Button>
+                          </>
+                        )}
+
+                        {report.status === 'in_progress' && (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() => setModalTargetStatus('resolved')}
+                              className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 font-semibold shadow-xs"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>Resolve Issue (Upload Photo Evidence)</span>
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setModalTargetStatus('rejected')}
+                              className="text-xs text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
+                            >
+                              Reject Report
+                            </Button>
+                          </>
+                        )}
+
+                        {['resolved', 'rejected'].includes(report.status) && (
+                          <>
+                            {user?.role === 'admin' ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setModalTargetStatus('in_progress')}
+                                className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20 flex items-center gap-1.5 font-medium"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span>Reopen Ticket (Admin Audit)</span>
+                              </Button>
+                            ) : (
+                              <p className="text-[11px] text-muted-foreground italic">
+                                Report finalized. Only system administrators can reopen resolved or rejected reports.
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
