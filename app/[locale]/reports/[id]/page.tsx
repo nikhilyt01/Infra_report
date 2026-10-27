@@ -7,13 +7,16 @@ import Navbar from '@/components/Navbar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import IssueProgressBar from '@/components/IssueProgressBar';
+import StatusUpdateModal from '@/components/StatusUpdateModal';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import 'leaflet/dist/leaflet.css';
 import {
   FileText, CheckCircle, Construction, Lightbulb, Droplet,
   Droplets, Trash2, Milestone, Trees, Bus, Zap, Wrench,
   Camera, Calendar, User, UserCog, Mail, MapPin, Navigation, Globe,
   Satellite, ArrowLeft, ThumbsUp, Clock, Check, Loader2,
-  AlertCircle
+  AlertCircle, ShieldAlert, TrendingUp, RotateCcw
 } from 'lucide-react';
 
 interface Report {
@@ -140,12 +143,52 @@ export default function ReportDetailPage() {
   const locale = (params.locale as string) || 'en';
   const reportId = params.id as string;
 
+  const { user } = useAuth();
+  const { toast } = useToast();
+
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [upvoted, setUpvoted] = useState(false);
   const [upvoteLoading, setUpvoteLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  // Evidence-gated lifecycle modal state
+  const [modalTargetStatus, setModalTargetStatus] = useState<string | null>(null);
+  const [isActionLoading, setIsActionLoading] = useState(false);
+
+  // Only municipal admin and approved manager (and in Phase 4 supervisor) can perform lifecycle actions
+  const isManagerOrAdmin = Boolean(
+    user && (user.role === 'admin' || (user.role === 'manager' && user.isApproved))
+  );
+
+  const handleApprove = async () => {
+    if (!user || !report) return;
+    setIsActionLoading(true);
+    try {
+      const response = await fetch(`/api/reports/${report._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          approvedBy: user._id,
+          status: 'under_review',
+          note: 'Report verified and approved by municipal manager',
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Report approved and moved to Under Review', 'Report Approved');
+        setReport(data.data);
+      } else {
+        toast.error(data.error || 'Failed to approve report');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Error approving report');
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchReport();
@@ -361,6 +404,119 @@ export default function ReportDetailPage() {
               </CardHeader>
               <CardContent className="p-5">
                 <IssueProgressBar status={report.status} showLabels={true} size="lg" />
+
+                {/* Manager/Admin Lifecycle Action Controls */}
+                {isManagerOrAdmin && (
+                  <div className="pt-4 mt-4 border-t border-border/60 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <ShieldAlert className="w-3.5 h-3.5 text-primary" />
+                        <span>Authorized Lifecycle Controls</span>
+                      </span>
+                      <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded font-mono capitalize">
+                        {user?.role}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      {report.status === 'submitted' && (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={handleApprove}
+                            disabled={isActionLoading}
+                            className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Approve Report</span>
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setModalTargetStatus('in_progress')}
+                            className="text-xs bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/20"
+                          >
+                            Start Work (In Progress)
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setModalTargetStatus('rejected')}
+                            className="text-xs text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
+                          >
+                            Reject Report
+                          </Button>
+                        </>
+                      )}
+
+                      {report.status === 'under_review' && (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => setModalTargetStatus('in_progress')}
+                            className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 font-medium"
+                          >
+                            <TrendingUp className="w-3.5 h-3.5" />
+                            <span>Start Field Work (In Progress)</span>
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setModalTargetStatus('rejected')}
+                            className="text-xs text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
+                          >
+                            Reject Report
+                          </Button>
+                        </>
+                      )}
+
+                      {report.status === 'in_progress' && (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => setModalTargetStatus('resolved')}
+                            className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 font-semibold shadow-xs"
+                          >
+                            <Camera className="w-3.5 h-3.5" />
+                            <span>Resolve Issue (Upload Photo Evidence)</span>
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setModalTargetStatus('rejected')}
+                            className="text-xs text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
+                          >
+                            Reject Report
+                          </Button>
+                        </>
+                      )}
+
+                      {['resolved', 'rejected'].includes(report.status) && (
+                        <>
+                          {user?.role === 'admin' ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setModalTargetStatus('in_progress')}
+                              className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20 flex items-center gap-1.5 font-medium"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>Reopen Ticket (Admin Audit)</span>
+                            </Button>
+                          ) : (
+                            <p className="text-[11px] text-muted-foreground italic">
+                              Report finalized. Only system administrators can reopen resolved or rejected reports.
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -644,6 +800,23 @@ export default function ReportDetailPage() {
             />
           </div>
         </div>
+      )}
+
+      {/* Evidence-Gated Status Update Modal */}
+      {modalTargetStatus && report && (
+        <StatusUpdateModal
+          isOpen={Boolean(modalTargetStatus)}
+          onClose={() => setModalTargetStatus(null)}
+          reportId={report._id}
+          reportTitle={report.title}
+          currentStatus={report.status}
+          targetStatus={modalTargetStatus}
+          onSuccess={(updatedReport) => {
+            setReport(updatedReport);
+            setModalTargetStatus(null);
+            fetchReport();
+          }}
+        />
       )}
     </div>
   );

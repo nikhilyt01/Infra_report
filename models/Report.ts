@@ -216,7 +216,11 @@ ReportSchema.index({ category: 1, status: 1 }); // Category analytics
 ReportSchema.index({ municipalityId: 1, status: 1 }); // Municipality analytics
 ReportSchema.index({ upvotes: -1, createdAt: -1 }); // Sort by community demand
 
-// Prevent model recompilation in development
+// Prevent model recompilation in development, while ensuring schema updates take effect
+if (process.env.NODE_ENV === 'development' && models.Report) {
+  delete (models as any).Report;
+}
+
 const Report: Model<IReport> = models.Report || mongoose.model<IReport>('Report', ReportSchema);
 
 export default Report;

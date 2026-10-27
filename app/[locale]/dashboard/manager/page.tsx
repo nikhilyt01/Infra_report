@@ -9,11 +9,14 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import IssueProgressBar from '@/components/IssueProgressBar';
+import StatusUpdateModal from '@/components/StatusUpdateModal';
 import { 
   BarChart3, Clock, TrendingUp, CheckCircle, 
   RotateCcw, Filter, MapPin, User, ThumbsUp, 
-  Check, ArrowUpRight, Loader2, ShieldCheck, AlertCircle
+  Check, ArrowUpRight, Loader2, ShieldCheck, AlertCircle,
+  Camera, Eye
 } from 'lucide-react';
 
 interface Report {
@@ -57,11 +60,20 @@ export default function ManagerDashboard() {
   const params = useParams();
   const locale = (params.locale as string) || 'en';
   const { user } = useAuth();
+  const { toast } = useToast();
   const [reports, setReports] = useState<Report[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [areaFilter, setAreaFilter] = useState('all');
+
+  // Evidence-gated status modal state
+  const [modalReport, setModalReport] = useState<{
+    id: string;
+    title: string;
+    currentStatus: string;
+    targetStatus: string;
+  } | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -98,43 +110,22 @@ export default function ManagerDashboard() {
     }
   };
 
-  const handleStatusChange = async (reportId: string, newStatus: string) => {
+  const openStatusModal = (report: Report, targetStatus: string) => {
     if (!user) {
-      alert('You must be logged in to perform this action');
+      toast.error('You must be signed in to perform this action');
       return;
     }
-
-    try {
-      const updateData: any = { status: newStatus };
-      
-      if (newStatus === 'in_progress') {
-        updateData.initiatedBy = user._id;
-      }
-
-      const response = await fetch(`/api/reports/${reportId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updateData),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        fetchDashboardData();
-      } else {
-        alert(data.error || 'Failed to update status');
-      }
-    } catch (error) {
-      console.error('Error updating status:', error);
-      alert('Error updating status');
-    }
+    setModalReport({
+      id: report._id,
+      title: report.title,
+      currentStatus: report.status,
+      targetStatus,
+    });
   };
 
   const handleApproveReport = async (reportId: string) => {
     if (!user) {
-      alert('You must be logged in to perform this action');
+      toast.error('You must be signed in to perform this action');
       return;
     }
 
@@ -146,20 +137,22 @@ export default function ManagerDashboard() {
         },
         body: JSON.stringify({ 
           approvedBy: user._id,
-          status: 'under_review'
+          status: 'under_review',
+          note: 'Report reviewed and approved by municipal manager',
         }),
       });
 
       const data = await response.json();
 
       if (data.success) {
+        toast.success('Report approved and moved to Under Review', 'Report Approved');
         fetchDashboardData();
       } else {
-        alert(data.error || 'Failed to approve report');
+        toast.error(data.error || 'Failed to approve report');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error approving report:', error);
-      alert('Error approving report');
+      toast.error(error.message || 'Error approving report');
     }
   };
 
@@ -434,18 +427,58 @@ export default function ManagerDashboard() {
 
                           {/* Action Select */}
                           <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Quick Action Buttons */}
+                              {['submitted', 'under_review'].includes(report.status) && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openStatusModal(report, 'in_progress')}
+                                  className="h-7 text-[11px] px-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/20"
+                                >
+                                  Start Work
+                                </Button>
+                              )}
+
+                              {report.status === 'in_progress' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openStatusModal(report, 'resolved')}
+                                  className="h-7 text-[11px] px-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 font-semibold flex items-center gap-1"
+                                >
+                                  <Camera className="w-3 h-3" />
+                                  <span>Resolve</span>
+                                </Button>
+                              )}
+
+                              {/* Lifecycle Selector Dropdown */}
                               <Select
                                 value={report.status}
-                                onChange={(e) => handleStatusChange(report._id, e.target.value)}
-                                className="h-8 text-xs w-36 bg-card border-border/80"
+                                onChange={(e) => {
+                                  const next = e.target.value;
+                                  if (next !== report.status) {
+                                    openStatusModal(report, next);
+                                  }
+                                }}
+                                className="h-7 text-[11px] w-28 bg-card border-border/80"
+                                aria-label="Lifecycle action"
                               >
-                                <option value="submitted">Submitted</option>
-                                <option value="under_review">Under Review</option>
-                                <option value="in_progress">In Progress</option>
-                                <option value="resolved">Resolved</option>
-                                <option value="closed">Closed</option>
-                                <option value="rejected">Rejected</option>
+                                <option value={report.status} disabled>
+                                  Action...
+                                </option>
+                                {['submitted', 'under_review'].includes(report.status) && (
+                                  <option value="in_progress">In Progress</option>
+                                )}
+                                {report.status === 'in_progress' && (
+                                  <option value="resolved">Resolve (Evidence)</option>
+                                )}
+                                {!['resolved', 'rejected', 'closed'].includes(report.status) && (
+                                  <option value="rejected">Reject (Reason)</option>
+                                )}
+                                {user?.role === 'admin' && ['resolved', 'rejected'].includes(report.status) && (
+                                  <option value="in_progress">Reopen (Admin)</option>
+                                )}
                               </Select>
 
                               <Link 
@@ -528,22 +561,48 @@ export default function ManagerDashboard() {
 
                         {/* Status Select & View */}
                         <div className="flex items-center gap-1.5">
+                          {report.status === 'in_progress' && (
+                            <Button
+                              size="sm"
+                              onClick={() => openStatusModal(report, 'resolved')}
+                              className="h-7 text-[11px] px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium flex items-center gap-1"
+                            >
+                              <Camera className="w-3 h-3" />
+                              <span>Resolve</span>
+                            </Button>
+                          )}
+
                           <Select
                             value={report.status}
-                            onChange={(e) => handleStatusChange(report._id, e.target.value)}
-                            className="h-8 text-xs w-32 bg-card border-border/80"
+                            onChange={(e) => {
+                              const next = e.target.value;
+                              if (next !== report.status) {
+                                openStatusModal(report, next);
+                              }
+                            }}
+                            className="h-7 text-[11px] w-28 bg-card border-border/80"
+                            aria-label="Lifecycle action"
                           >
-                            <option value="submitted">Submitted</option>
-                            <option value="under_review">Under Review</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="resolved">Resolved</option>
-                            <option value="closed">Closed</option>
-                            <option value="rejected">Rejected</option>
+                            <option value={report.status} disabled>
+                              Action...
+                            </option>
+                            {['submitted', 'under_review'].includes(report.status) && (
+                              <option value="in_progress">In Progress</option>
+                            )}
+                            {report.status === 'in_progress' && (
+                              <option value="resolved">Resolve (Photo)</option>
+                            )}
+                            {!['resolved', 'rejected', 'closed'].includes(report.status) && (
+                              <option value="rejected">Reject</option>
+                            )}
+                            {user?.role === 'admin' && ['resolved', 'rejected'].includes(report.status) && (
+                              <option value="in_progress">Reopen</option>
+                            )}
                           </Select>
 
                           <Link 
                             href={`/${locale}/reports/${report._id}`}
-                            className="p-2 rounded-md bg-secondary/80 hover:bg-secondary text-foreground transition-colors flex items-center justify-center"
+                            className="p-1.5 rounded-md bg-secondary/80 hover:bg-secondary text-foreground transition-colors flex items-center justify-center"
                             title="Open Ticket"
                           >
                             <ArrowUpRight className="w-4 h-4" />
@@ -558,6 +617,22 @@ export default function ManagerDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Evidence-Gated Status Update Modal */}
+      {modalReport && (
+        <StatusUpdateModal
+          isOpen={Boolean(modalReport)}
+          onClose={() => setModalReport(null)}
+          reportId={modalReport.id}
+          reportTitle={modalReport.title}
+          currentStatus={modalReport.currentStatus}
+          targetStatus={modalReport.targetStatus}
+          onSuccess={() => {
+            fetchDashboardData();
+            setModalReport(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -14,6 +14,8 @@ const inter = Inter({
   display: 'swap',
 });
 
+import { ToastProvider } from '@/contexts/ToastContext';
+
 export default async function LocaleLayout({
     children,
     params
@@ -50,13 +52,15 @@ export default async function LocaleLayout({
 
                 <NextIntlClientProvider locale={locale} messages={messages}>
                     <AuthProvider>
-                        <RegisterServiceWorker />
-                        <AccessibilityFeatures />
-                        <KeyboardShortcuts />
-                        <main id="main-content">
-                            {children}
-                        </main>
-                        <InstallPWA />
+                        <ToastProvider>
+                            <RegisterServiceWorker />
+                            <AccessibilityFeatures />
+                            <KeyboardShortcuts />
+                            <main id="main-content">
+                                {children}
+                            </main>
+                            <InstallPWA />
+                        </ToastProvider>
                     </AuthProvider>
                 </NextIntlClientProvider>
             </body>

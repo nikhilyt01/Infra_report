@@ -13,10 +13,10 @@ export async function GET(
     const { id } = await params;
 
     const report = await Report.findById(id)
-      .populate('reportedBy', 'name email avatar')
-      .populate('assignedTo', 'name email avatar')
-      .populate('approvedBy', 'name email avatar')
-      .populate('initiatedBy', 'name email avatar');
+      .populate({ path: 'reportedBy', select: 'name email avatar', strictPopulate: false })
+      .populate({ path: 'assignedTo', select: 'name email avatar', strictPopulate: false })
+      .populate({ path: 'approvedBy', select: 'name email avatar', strictPopulate: false })
+      .populate({ path: 'initiatedBy', select: 'name email avatar', strictPopulate: false });
 
     if (!report) {
       return NextResponse.json(
