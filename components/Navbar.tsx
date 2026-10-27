@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   Home, 
   Map, 
@@ -22,7 +22,12 @@ import {
   User, 
   ClipboardCheck,
   Copy,
-  Check
+  Check,
+  ChevronDown,
+  ShieldCheck,
+  Building2,
+  Sparkles,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
@@ -34,22 +39,79 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [copiedSupervisorId, setCopiedSupervisorId] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const handleCopySupervisorId = () => {
-    if (user?.supervisorCode) {
-      navigator.clipboard.writeText(user.supervisorCode);
+  // Close menus on route navigation
+  useEffect(() => {
+    setUserDropdownOpen(false);
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  // Click-outside listener for user dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setUserDropdownOpen(false);
+      }
+    }
+    if (userDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [userDropdownOpen]);
+
+  // Robust clipboard copy with fallback to execCommand
+  const copyToClipboard = async (text: string) => {
+    if (!text) {
+      toast.error('No ID available to copy');
+      return;
+    }
+    let success = false;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        success = true;
+      }
+    } catch {
+      success = false;
+    }
+
+    if (!success) {
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        success = document.execCommand('copy');
+        document.body.removeChild(textArea);
+      } catch (e) {
+        console.error('Fallback copy failed', e);
+      }
+    }
+
+    if (success) {
       setCopiedSupervisorId(true);
       setTimeout(() => setCopiedSupervisorId(false), 2000);
       toast.success(
-        `Supervisor ID (${user.supervisorCode}) copied to clipboard! Share with your Municipal Admin for approval.`,
+        `Supervisor ID (${text}) copied! Share with your Municipal Admin for approval.`,
         'ID Copied'
       );
+    } else {
+      toast.error(`Could not auto-copy. Your ID is: ${text}`);
     }
   };
-  
+
   const handleLogout = async () => {
     await logout();
+    setUserDropdownOpen(false);
     router.push(`/${locale}`);
   };
 
@@ -223,19 +285,31 @@ export default function Navbar() {
                 </Link>
               </div>
             ) : (
-              <div className="flex items-center gap-2 pl-2 border-l border-border/80">
-                <div 
-                  className={`flex items-center gap-2 px-2.5 py-1 bg-secondary/60 rounded-lg border border-border/60 ${
-                    user.role === 'supervisor' ? 'cursor-pointer hover:border-amber-500/50 hover:bg-secondary/90 transition-all' : ''
+              <div className="relative pl-2 border-l border-border/80" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setUserDropdownOpen((prev) => !prev)}
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all text-left ${
+                    userDropdownOpen
+                      ? 'bg-secondary border-primary/50 shadow-xs ring-2 ring-primary/20'
+                      : 'bg-secondary/60 hover:bg-secondary border-border/60 hover:border-border'
                   }`}
-                  onClick={user.role === 'supervisor' ? handleCopySupervisorId : undefined}
-                  title={user.role === 'supervisor' ? `Click to copy Supervisor ID (${user.supervisorCode || 'Generating...'})` : undefined}
+                  aria-expanded={userDropdownOpen}
+                  aria-haspopup="true"
+                  title="Open Account Menu"
                 >
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
-                    user.role === 'supervisor' ? 'bg-amber-500 text-gray-950 shadow-xs' : 'bg-primary text-primary-foreground'
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold shadow-xs ${
+                    user.role === 'supervisor'
+                      ? 'bg-amber-500 text-gray-950 font-black'
+                      : user.role === 'manager'
+                      ? 'bg-blue-600 text-white'
+                      : user.role === 'admin'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-primary text-primary-foreground'
                   }`}>
                     {user.name?.[0]?.toUpperCase() || 'U'}
                   </div>
+                  
                   <div className="flex flex-col text-left">
                     <span className="text-xs font-semibold text-foreground truncate max-w-[100px] leading-tight">
                       {user.name}
@@ -243,29 +317,168 @@ export default function Navbar() {
                     <span className="text-[10px] text-muted-foreground capitalize leading-tight">
                       {user.role}
                     </span>
-                    {user.role === 'supervisor' && user.supervisorCode && (
-                      <span
-                        className="text-[9px] font-mono font-bold text-amber-500 flex items-center gap-1 hover:text-amber-400 transition-colors leading-tight"
-                      >
-                        <span>ID: {user.supervisorCode}</span>
-                        {copiedSupervisorId ? (
-                          <Check className="w-2.5 h-2.5 text-emerald-500" />
-                        ) : (
-                          <Copy className="w-2.5 h-2.5 text-amber-500/70" />
-                        )}
-                      </span>
-                    )}
                   </div>
-                </div>
 
-                <button
-                  onClick={handleLogout}
-                  className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                  title="Log out"
-                  aria-label="Log out"
-                >
-                  <LogOut className="w-4 h-4" />
+                  <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ml-0.5 ${
+                    userDropdownOpen ? 'rotate-180 text-foreground' : ''
+                  }`} />
                 </button>
+
+                {/* Account Dropdown Modal/Card */}
+                {userDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-80 rounded-2xl bg-card border border-border/80 shadow-2xl z-50 p-3.5 space-y-3 animate-in fade-in-0 zoom-in-95 duration-150">
+                    {/* User Profile Card */}
+                    <div className="flex items-start gap-3 pb-3 border-b border-border/60">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shadow-inner shrink-0 ${
+                        user.role === 'supervisor'
+                          ? 'bg-amber-500 text-gray-950'
+                          : user.role === 'manager'
+                          ? 'bg-blue-600 text-white'
+                          : user.role === 'admin'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-primary text-primary-foreground'
+                      }`}>
+                        {user.name?.[0]?.toUpperCase() || 'U'}
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-0.5">
+                        <div className="flex items-center justify-between gap-1">
+                          <p className="text-xs font-bold text-foreground truncate">{user.name}</p>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full uppercase tracking-wider ${
+                            user.isApproved 
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                          }`}>
+                            {user.isApproved ? 'Active' : 'Pending'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
+                        <p className="text-[10px] text-muted-foreground capitalize flex items-center gap-1 pt-0.5">
+                          <span className="font-semibold text-foreground">
+                            {user.role === 'supervisor' ? 'Field Supervisor' : user.role === 'manager' ? 'Municipal Manager' : user.role === 'admin' ? 'System Administrator' : 'Citizen Reporter'}
+                          </span>
+                          {user.department && (
+                            <span className="text-muted-foreground">· {user.department}</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* SUPERVISOR UNIQUE ID CARD */}
+                    {user.role === 'supervisor' && (
+                      <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-amber-500" />
+                            <span>Unique Supervisor ID</span>
+                          </span>
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold font-mono">
+                            OFFICIAL
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 bg-background p-2 rounded-lg border border-border/80 shadow-xs">
+                          <span className="font-mono text-sm font-black tracking-wider text-amber-600 dark:text-amber-400 select-all">
+                            {user.supervisorCode || 'SUP-PENDING'}
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => copyToClipboard(user.supervisorCode || '')}
+                            className="h-7 px-2.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-gray-950 flex items-center gap-1 shrink-0"
+                          >
+                            {copiedSupervisorId ? (
+                              <>
+                                <Check className="w-3 h-3" />
+                                <span>Copied</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                <span>Copy ID</span>
+                              </>
+                            )}
+                          </Button>
+                        </div>
+
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                          Share this unique ID with your Municipal Admin to authorize work orders and field assignment.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Quick Portal Navigation Links */}
+                    <div className="space-y-1 pt-1">
+                      {user.role === 'supervisor' && (
+                        <Link
+                          href={`/${locale}/dashboard/supervisor`}
+                          onClick={() => setUserDropdownOpen(false)}
+                          className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary transition-colors text-xs text-foreground group"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                              <ClipboardCheck className="w-3.5 h-3.5" />
+                            </div>
+                            <span className="font-medium group-hover:text-primary transition-colors">My Work Orders</span>
+                          </div>
+                          {!user.isApproved && (
+                            <span className="text-[9px] px-1.5 py-0.2 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-full font-bold">
+                              Pending
+                            </span>
+                          )}
+                        </Link>
+                      )}
+
+                      {user.role === 'manager' && (
+                        <Link
+                          href={`/${locale}/dashboard/manager`}
+                          onClick={() => setUserDropdownOpen(false)}
+                          className="flex items-center gap-2 p-2 rounded-lg hover:bg-secondary transition-colors text-xs text-foreground group"
+                        >
+                          <div className="w-6 h-6 rounded-md bg-primary/10 text-primary flex items-center justify-center">
+                            <LayoutDashboard className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="font-medium group-hover:text-primary transition-colors">Manager Operations Portal</span>
+                        </Link>
+                      )}
+
+                      {user.role === 'admin' && (
+                        <Link
+                          href={`/${locale}/admin`}
+                          onClick={() => setUserDropdownOpen(false)}
+                          className="flex items-center gap-2 p-2 rounded-lg hover:bg-secondary transition-colors text-xs text-foreground group"
+                        >
+                          <div className="w-6 h-6 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                            <Shield className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="font-medium group-hover:text-primary transition-colors">Admin Governance Console</span>
+                        </Link>
+                      )}
+
+                      <Link
+                        href={`/${locale}/my-reports`}
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center gap-2 p-2 rounded-lg hover:bg-secondary transition-colors text-xs text-foreground group"
+                      >
+                        <div className="w-6 h-6 rounded-md bg-secondary text-muted-foreground flex items-center justify-center">
+                          <FileText className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="font-medium group-hover:text-primary transition-colors">My Reports</span>
+                      </Link>
+                    </div>
+
+                    {/* Divider & Sign Out */}
+                    <div className="pt-2 border-t border-border/60">
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="w-full flex items-center justify-center gap-1.5 p-2 rounded-lg text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Sign Out of Account</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -433,41 +646,72 @@ export default function Navbar() {
                 </Link>
               </>
             ) : (
-              <div 
-                className={`flex items-center justify-between p-2 bg-secondary/60 rounded-lg ${
-                  user.role === 'supervisor' ? 'cursor-pointer hover:bg-secondary/90 transition-all' : ''
-                }`}
-                onClick={user.role === 'supervisor' ? handleCopySupervisorId : undefined}
-              >
-                <div className="flex items-center gap-2">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                    user.role === 'supervisor' ? 'bg-amber-500 text-gray-950 shadow-xs' : 'bg-primary text-primary-foreground'
+              <div className="space-y-3 p-3 bg-secondary/50 rounded-xl border border-border/80">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shadow-xs ${
+                      user.role === 'supervisor' ? 'bg-amber-500 text-gray-950 font-black' : 'bg-primary text-primary-foreground'
+                    }`}>
+                      {user.name?.[0]?.toUpperCase() || 'U'}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-foreground">{user.name}</p>
+                      <p className="text-[11px] text-muted-foreground">{user.email}</p>
+                    </div>
+                  </div>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                    user.isApproved 
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
                   }`}>
-                    {user.name?.[0]?.toUpperCase() || 'U'}
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-foreground">{user.name}</p>
-                    <p className="text-[10px] text-muted-foreground capitalize">{user.role}</p>
-                    {user.role === 'supervisor' && user.supervisorCode && (
-                      <p className="text-[9px] font-mono font-bold text-amber-500 flex items-center gap-1">
-                        <span>ID: {user.supervisorCode}</span>
-                        {copiedSupervisorId ? (
-                          <Check className="w-2.5 h-2.5 text-emerald-500" />
-                        ) : (
-                          <Copy className="w-2.5 h-2.5 text-amber-500/70" />
-                        )}
-                      </p>
-                    )}
-                  </div>
+                    {user.isApproved ? 'Active' : 'Pending'}
+                  </span>
                 </div>
+
+                {/* Supervisor Mobile Unique ID Card */}
+                {user.role === 'supervisor' && (
+                  <div className="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>Your Unique Supervisor ID</span>
+                    </span>
+                    <div className="flex items-center justify-between gap-2 bg-background p-2 rounded-md border border-border/80">
+                      <span className="font-mono text-sm font-black tracking-wider text-amber-600 dark:text-amber-400 select-all">
+                        {user.supervisorCode || 'SUP-PENDING'}
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => copyToClipboard(user.supervisorCode || '')}
+                        className="h-7 px-2.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-gray-950 flex items-center gap-1 shrink-0"
+                      >
+                        {copiedSupervisorId ? (
+                          <>
+                            <Check className="w-3 h-3" />
+                            <span>Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" />
+                            <span>Copy</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Share with your municipal manager for approval.
+                    </p>
+                  </div>
+                )}
+
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleLogout}
-                  className="text-xs text-destructive hover:bg-destructive/10 border-destructive/30"
+                  className="w-full text-xs text-destructive hover:bg-destructive/10 border-destructive/30 justify-center gap-1.5"
                 >
-                  <LogOut className="w-3.5 h-3.5 mr-1" />
-                  Logout
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
                 </Button>
               </div>
             )}

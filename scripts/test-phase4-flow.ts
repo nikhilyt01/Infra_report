@@ -50,9 +50,21 @@ async function testPhase4() {
   console.log(`✅ 4. Manager approved supervisor. isApproved is now: ${searched.isApproved}`);
 
   // 5. Assign a report to this supervisor
-  const report = await Report.findOne({ status: { $in: ['submitted', 'under_review', 'in_progress'] } });
+  let report = await Report.findOne({ status: { $in: ['submitted', 'under_review', 'in_progress'] } });
   if (!report) {
-    throw new Error('No active report found to test assignment!');
+    report = await Report.create({
+      title: 'Automated Test Infrastructure Defect',
+      description: 'Pothole detected during automated inspection',
+      category: 'roads',
+      status: 'submitted',
+      priority: 'medium',
+      address: 'Main Street Sector 4, Civic Center',
+      reportedBy: manager._id,
+      location: {
+        type: 'Point',
+        coordinates: [77.1025, 28.7041],
+      },
+    });
   }
 
   report.assignedTo = String(supervisor._id);

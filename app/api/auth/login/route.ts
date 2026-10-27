@@ -58,17 +58,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if supervisor is approved
-    if (user.role === 'supervisor' && !user.isApproved) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: `Your supervisor account is pending approval. Share your Supervisor ID (${user.supervisorCode || 'pending'}) with your municipal manager.`,
-          needsApproval: true,
-          supervisorCode: user.supervisorCode,
-        },
-        { status: 403 }
-      );
+    // Ensure supervisor always has a unique ID
+    if (user.role === 'supervisor' && !user.supervisorCode) {
+      user.supervisorCode = `SUP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      await user.save();
     }
 
     // Generate JWT token

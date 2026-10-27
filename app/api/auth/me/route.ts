@@ -32,6 +32,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Ensure supervisor always has a unique ID
+    if (user.role === 'supervisor' && !user.supervisorCode) {
+      user.supervisorCode = `SUP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      await user.save();
+    }
+
     // Return user data
     const userResponse = {
       _id: user._id,

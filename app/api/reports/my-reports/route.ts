@@ -1,4 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
+import mongoose from 'mongoose';
 import connectDB from '@/lib/mongodb';
 import Report from '@/models/Report';
 import jwt from 'jsonwebtoken';
@@ -29,6 +30,19 @@ export async function GET(request: NextRequest) {
       );
     }
     
+    const userId = user.userId || user.id || user._id;
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Invalid user token' },
+        { status: 401 }
+      );
+    }
+
+    let userObjectId: any = userId;
+    if (mongoose.Types.ObjectId.isValid(userId)) {
+      userObjectId = new mongoose.Types.ObjectId(userId);
+    }
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const page = parseInt(searchParams.get('page') || '1');
@@ -36,7 +50,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
     
     // Build query - only get reports created by current user
-    const query: any = { reportedBy: user.Id };
+    const query: any = { reportedBy: userObjectId };
     if (status && status !== 'all') {
       query.status = status;
     }
@@ -55,7 +69,7 @@ export async function GET(request: NextRequest) {
     
     // Get status counts for user's reports
     const statusCounts = await Report.aggregate([
-      { $match: { reportedBy: user.id } },
+      { $match: { reportedBy: userObjectId } },
       { $group: { _id: '$status', count: { $sum: 1 } } }
     ]);
     
