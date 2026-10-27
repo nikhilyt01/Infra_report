@@ -224,8 +224,8 @@ export default function ManagerDashboard() {
         {/* Analytics Snapshot Grid */}
         {analytics && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border border-border/80 shadow-xs bg-card">
-              <CardContent className="p-5 flex items-center gap-4">
+            <Card className="border border-border/80 shadow-xs bg-card ">
+              <CardContent className="p-5 flex items-center gap-4 mt-2">
                 <div className="w-11 h-11 rounded-xl bg-blue-500/10 text-primary flex items-center justify-center shrink-0">
                   <BarChart3 className="w-5 h-5" />
                 </div>
@@ -237,7 +237,7 @@ export default function ManagerDashboard() {
             </Card>
 
             <Card className="border border-border/80 shadow-xs bg-card">
-              <CardContent className="p-5 flex items-center gap-4">
+              <CardContent className="p-5 flex items-center gap-4 mt-2">
                 <div className="w-11 h-11 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
                   <Clock className="w-5 h-5" />
                 </div>
@@ -251,7 +251,7 @@ export default function ManagerDashboard() {
             </Card>
 
             <Card className="border border-border/80 shadow-xs bg-card">
-              <CardContent className="p-5 flex items-center gap-4">
+              <CardContent className="p-5 flex items-center gap-4 mt-2">
                 <div className="w-11 h-11 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
                   <TrendingUp className="w-5 h-5" />
                 </div>
@@ -265,7 +265,7 @@ export default function ManagerDashboard() {
             </Card>
 
             <Card className="border border-border/80 shadow-xs bg-card">
-              <CardContent className="p-5 flex items-center gap-4">
+              <CardContent className="p-5 flex items-center gap-4 mt-2">
                 <div className="w-11 h-11 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
                   <CheckCircle className="w-5 h-5" />
                 </div>
@@ -284,12 +284,12 @@ export default function ManagerDashboard() {
         <Card className="border border-border/80 shadow-xs bg-card">
           <CardContent className="p-4">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                <Filter className="w-4 h-4 text-primary" />
+              <div className="flex items-center gap-2 text-xs font-semibold text-foreground mt-2">
+                <Filter className="w-4 h-4 text-primary " />
                 <span>Filter Queue:</span>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-center gap-3 mt-2">
                 <Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
