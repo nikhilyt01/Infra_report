@@ -764,18 +764,18 @@ export default function ManagerDashboard() {
               <div>
                 {/* Desktop Data Table View */}
                 <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left text-xs min-w-[1050px]">
-                    <thead className="bg-secondary/40 border-b border-border/60 text-muted-foreground font-semibold uppercase text-[11px] tracking-wider">
+                  <table className="w-full text-left text-xs min-w-[1100px] border-collapse">
+                    <thead className="bg-secondary/40 border-b border-border/60 text-muted-foreground font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">
                       <tr>
-                        <th className="py-3 px-4">Issue Details</th>
+                        <th className="py-3 px-4 min-w-[220px]">Issue Details</th>
                         <th className="py-3 px-3">Status</th>
                         <th className="py-3 px-3">Priority</th>
                         <th className="py-3 px-3">Ward / Area</th>
                         <th className="py-3 px-3">Reporter</th>
-                        <th className="py-3 px-3">Assigned Supervisor</th>
-                        <th className="py-3 px-3">Approval</th>
-                        <th className="py-3 px-3">Votes</th>
-                        <th className="py-3 px-4 text-right">Lifecycle Action</th>
+                        <th className="py-3 px-3 min-w-[175px]">Assigned Supervisor</th>
+                        <th className="py-3 px-3 text-center">Approval</th>
+                        <th className="py-3 px-3 text-center">Votes</th>
+                        <th className="py-3 px-4 text-right min-w-[140px]">Lifecycle Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60">
@@ -823,35 +823,35 @@ export default function ManagerDashboard() {
                           </td>
 
                           {/* Assigned Supervisor Dropdown */}
-                          <td className="py-3.5 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <td className="py-3.5 px-3 whitespace-nowrap min-w-[175px]" onClick={(e) => e.stopPropagation()}>
                             <Select
                               value={report.assignedTo?._id || ''}
                               onChange={(e) => handleAssignReport(report._id, e.target.value)}
-                              className="h-7 text-[11px] w-36 bg-card border-border/80"
+                              className="h-8 text-xs w-44 bg-card border-border/80 rounded-lg px-2"
                               aria-label="Assign supervisor"
                             >
                               <option value="">Unassigned</option>
                               {approvedSupervisors.map((sup) => (
                                 <option key={sup._id} value={sup._id}>
-                                  {sup.name} ({sup.department || 'Field'})
+                                  {sup.name} ({sup.supervisorCode || sup.department || 'Field'})
                                 </option>
                               ))}
                             </Select>
                           </td>
 
                           {/* Approval */}
-                          <td className="py-3.5 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <td className="py-3.5 px-3 whitespace-nowrap text-center" onClick={(e) => e.stopPropagation()}>
                             {report.approvedBy ? (
-                              <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 text-xs">
+                              <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold text-xs bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20">
                                 <Check className="w-3.5 h-3.5" />
-                                <span>{report.approvedBy.name}</span>
+                                <span>Approved</span>
                               </span>
                             ) : (
                               <Button
                                 onClick={() => handleApproveReport(report._id)}
                                 variant="outline"
                                 size="sm"
-                                className="h-7 text-[11px] px-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                                className="h-7 text-[11px] px-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
                               >
                                 Approve
                               </Button>
@@ -859,57 +859,50 @@ export default function ManagerDashboard() {
                           </td>
 
                           {/* Votes */}
-                          <td className="py-3.5 px-3 text-muted-foreground font-semibold whitespace-nowrap">
+                          <td className="py-3.5 px-3 text-center text-muted-foreground font-semibold whitespace-nowrap">
                             👍 {report.upvotes || 0}
                           </td>
 
                           {/* Lifecycle Actions */}
-                          <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap min-w-[140px]" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1.5">
-                              {/* Direct Resolve button for In Progress reports */}
-                              {report.status === 'in_progress' && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => openStatusModal(report, 'resolved')}
-                                  className="h-7 text-[11px] px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium flex items-center gap-1 shadow-xs"
+                              {['resolved', 'rejected'].includes(report.status) && user?.role !== 'admin' ? (
+                                <span className="text-[11px] text-muted-foreground italic px-2">
+                                  {report.status === 'resolved' ? 'Resolved' : 'Rejected'}
+                                </span>
+                              ) : (
+                                <Select
+                                  value=""
+                                  onChange={(e) => {
+                                    const next = e.target.value;
+                                    if (next) {
+                                      openStatusModal(report, next);
+                                    }
+                                  }}
+                                  className="h-8 text-xs w-28 bg-card border-border/80 rounded-lg px-2 font-medium cursor-pointer"
+                                  aria-label="Lifecycle action"
                                 >
-                                  <Camera className="w-3 h-3" />
-                                  <span>Resolve</span>
-                                </Button>
+                                  <option value="" disabled>
+                                    Action...
+                                  </option>
+                                  {['submitted', 'under_review'].includes(report.status) && (
+                                    <option value="in_progress">Start Work</option>
+                                  )}
+                                  {report.status === 'in_progress' && (
+                                    <option value="resolved">Resolve Issue</option>
+                                  )}
+                                  {!['resolved', 'rejected', 'closed'].includes(report.status) && (
+                                    <option value="rejected">Reject Report</option>
+                                  )}
+                                  {user?.role === 'admin' && ['resolved', 'rejected'].includes(report.status) && (
+                                    <option value="in_progress">Reopen Ticket</option>
+                                  )}
+                                </Select>
                               )}
-
-                              {/* Lifecycle Selector Dropdown */}
-                              <Select
-                                value={report.status}
-                                onChange={(e) => {
-                                  const next = e.target.value;
-                                  if (next !== report.status) {
-                                    openStatusModal(report, next);
-                                  }
-                                }}
-                                className="h-7 text-[11px] w-28 bg-card border-border/80"
-                                aria-label="Lifecycle action"
-                              >
-                                <option value={report.status} disabled>
-                                  Action...
-                                </option>
-                                {['submitted', 'under_review'].includes(report.status) && (
-                                  <option value="in_progress">In Progress</option>
-                                )}
-                                {report.status === 'in_progress' && (
-                                  <option value="resolved">Resolve (Evidence)</option>
-                                )}
-                                {!['resolved', 'rejected', 'closed'].includes(report.status) && (
-                                  <option value="rejected">Reject (Reason)</option>
-                                )}
-                                {user?.role === 'admin' && ['resolved', 'rejected'].includes(report.status) && (
-                                  <option value="in_progress">Reopen (Admin)</option>
-                                )}
-                              </Select>
 
                               <Link 
                                 href={`/${locale}/reports/${report._id}`}
-                                className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                                className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shrink-0"
                                 title="Open Ticket Details"
                               >
                                 <ArrowUpRight className="w-4 h-4" />
@@ -1005,48 +998,43 @@ export default function ManagerDashboard() {
 
                         {/* Status Select & View */}
                         <div className="flex items-center gap-1.5">
-                          {report.status === 'in_progress' && (
-                            <Button
-                              size="sm"
-                              onClick={() => openStatusModal(report, 'resolved')}
-                              className="h-7 text-[11px] px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium flex items-center gap-1"
+                          {['resolved', 'rejected'].includes(report.status) && user?.role !== 'admin' ? (
+                            <span className="text-[11px] text-muted-foreground italic px-2">
+                              {report.status === 'resolved' ? 'Resolved' : 'Rejected'}
+                            </span>
+                          ) : (
+                            <Select
+                              value=""
+                              onChange={(e) => {
+                                const next = e.target.value;
+                                if (next) {
+                                  openStatusModal(report, next);
+                                }
+                              }}
+                              className="h-8 text-xs w-28 bg-card border-border/80 rounded-lg px-2 font-medium"
+                              aria-label="Lifecycle action"
                             >
-                              <Camera className="w-3 h-3" />
-                              <span>Resolve</span>
-                            </Button>
+                              <option value="" disabled>
+                                Action...
+                              </option>
+                              {['submitted', 'under_review'].includes(report.status) && (
+                                <option value="in_progress">Start Work</option>
+                              )}
+                              {report.status === 'in_progress' && (
+                                <option value="resolved">Resolve Issue</option>
+                              )}
+                              {!['resolved', 'rejected', 'closed'].includes(report.status) && (
+                                <option value="rejected">Reject</option>
+                              )}
+                              {user?.role === 'admin' && ['resolved', 'rejected'].includes(report.status) && (
+                                <option value="in_progress">Reopen</option>
+                              )}
+                            </Select>
                           )}
-
-                          <Select
-                            value={report.status}
-                            onChange={(e) => {
-                              const next = e.target.value;
-                              if (next !== report.status) {
-                                openStatusModal(report, next);
-                              }
-                            }}
-                            className="h-7 text-[11px] w-28 bg-card border-border/80"
-                            aria-label="Lifecycle action"
-                          >
-                            <option value={report.status} disabled>
-                              Action...
-                            </option>
-                            {['submitted', 'under_review'].includes(report.status) && (
-                              <option value="in_progress">In Progress</option>
-                            )}
-                            {report.status === 'in_progress' && (
-                              <option value="resolved">Resolve (Photo)</option>
-                            )}
-                            {!['resolved', 'rejected', 'closed'].includes(report.status) && (
-                              <option value="rejected">Reject</option>
-                            )}
-                            {user?.role === 'admin' && ['resolved', 'rejected'].includes(report.status) && (
-                              <option value="in_progress">Reopen</option>
-                            )}
-                          </Select>
 
                           <Link 
                             href={`/${locale}/reports/${report._id}`}
-                            className="p-1.5 rounded-md bg-secondary/80 hover:bg-secondary text-foreground transition-colors flex items-center justify-center"
+                            className="p-1.5 rounded-lg bg-secondary/80 hover:bg-secondary text-foreground transition-colors flex items-center justify-center shrink-0"
                             title="Open Ticket"
                           >
                             <ArrowUpRight className="w-4 h-4" />
