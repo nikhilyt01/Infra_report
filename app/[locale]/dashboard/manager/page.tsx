@@ -792,7 +792,7 @@ export default function ManagerDashboard() {
                 <div className="min-w-0">
                   <p className="text-[11px] sm:text-xs text-muted-foreground font-medium truncate">Resolved Rate</p>
                   <p className="text-lg sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                    {analytics.resolutionRate}%
+                    {Number(analytics.resolutionRate).toFixed(2)}%
                   </p>
                 </div>
               </CardContent>
@@ -957,7 +957,12 @@ export default function ManagerDashboard() {
                             <Select
                               value={report.assignedTo?._id || ''}
                               onChange={(e) => handleAssignReport(report._id, e.target.value)}
-                              className="h-8 text-xs w-44 bg-card border-border/80 rounded-lg px-2"
+                              disabled={['resolved', 'closed', 'rejected'].includes(report.status)}
+                              className={`h-8 text-xs w-44 bg-card border-border/80 rounded-lg px-2 transition-opacity ${
+                                ['resolved', 'closed', 'rejected'].includes(report.status)
+                                  ? 'opacity-40 cursor-not-allowed pointer-events-none'
+                                  : ''
+                              }`}
                               aria-label="Assign supervisor"
                             >
                               <option value="">Unassigned</option>
@@ -1101,7 +1106,14 @@ export default function ManagerDashboard() {
                       </div>
 
                       {/* Field Supervisor Assignment on Mobile */}
-                      <div className="flex items-center justify-between gap-2 pt-1 bg-secondary/20 p-2 rounded-lg border border-border/40" onClick={(e) => e.stopPropagation()}>
+                      <div
+                        className={`flex items-center justify-between gap-2 pt-1 bg-secondary/20 p-2 rounded-lg border border-border/40 transition-opacity ${
+                          ['resolved', 'closed', 'rejected'].includes(report.status)
+                            ? 'opacity-40 pointer-events-none'
+                            : ''
+                        }`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium shrink-0">
                           <User className="w-3.5 h-3.5 text-primary" />
                           <span className="text-[11px] sm:text-xs">Supervisor:</span>
@@ -1109,6 +1121,7 @@ export default function ManagerDashboard() {
                         <Select
                           value={report.assignedTo?._id || ''}
                           onChange={(e) => handleAssignReport(report._id, e.target.value)}
+                          disabled={['resolved', 'closed', 'rejected'].includes(report.status)}
                           className="h-8 text-xs flex-1 max-w-[210px] bg-card border-border/80 rounded-md"
                           aria-label="Assign supervisor"
                         >
