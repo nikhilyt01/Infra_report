@@ -923,7 +923,7 @@ export default function ManagerDashboard() {
                             <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                               {report.address}
                             </p>
-                            <div className="mt-2 w-32">
+                            <div className="mt-2 w-36 sm:w-44">
                               <IssueProgressBar status={report.status} showLabels={false} size="sm" />
                             </div>
                           </td>
@@ -976,6 +976,16 @@ export default function ManagerDashboard() {
                                 <Check className="w-3.5 h-3.5" />
                                 <span>Approved</span>
                               </span>
+                            ) : ['resolved', 'closed', 'rejected'].includes(report.status) ? (
+                              <Button
+                                disabled
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-[11px] px-2.5 opacity-40 cursor-not-allowed bg-muted text-muted-foreground border-border/40 pointer-events-none select-none"
+                                title="Report is resolved and cannot be approved"
+                              >
+                                Approve
+                              </Button>
                             ) : (
                               <Button
                                 onClick={() => handleApproveReport(report._id)}
@@ -1120,6 +1130,16 @@ export default function ManagerDashboard() {
                               <Check className="w-3.5 h-3.5" />
                               <span>Approved</span>
                             </span>
+                          ) : ['resolved', 'closed', 'rejected'].includes(report.status) ? (
+                            <Button
+                              disabled
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs px-3 opacity-40 cursor-not-allowed bg-muted text-muted-foreground border-border/40 pointer-events-none select-none"
+                              title="Report is resolved and cannot be approved"
+                            >
+                              Approve
+                            </Button>
                           ) : (
                             <Button
                               onClick={() => handleApproveReport(report._id)}
