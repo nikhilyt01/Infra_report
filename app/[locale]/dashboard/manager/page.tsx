@@ -316,38 +316,38 @@ export default function ManagerDashboard() {
       {/* Top Navbar */}
       <Navbar />
 
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6 flex-1">
+      <div className="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6 flex-1">
         {/* Header & Breadcrumb */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border/60">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-2 border-b border-border/60">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
               <Link href={`/${locale}`} className="hover:text-foreground transition-colors">
                 Home
               </Link>
               <span>/</span>
               <span className="text-foreground">Manager Portal</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-              <ShieldCheck className="w-7 h-7 text-primary" />
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <ShieldCheck className="w-6 h-6 sm:w-7 sm:h-7 text-primary shrink-0" />
               <span>City Manager Operations</span>
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Review incoming citizen tickets, approve work orders, and assign field repair teams
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             {/* Notification & Approval Hub Button */}
             <Button
               onClick={() => setShowNotificationsHub(!showNotificationsHub)}
               variant={showNotificationsHub ? 'default' : 'outline'}
               size="sm"
-              className="flex items-center gap-2 text-xs font-semibold relative"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 text-xs font-semibold relative h-9"
             >
-              <Bell className="w-3.5 h-3.5 text-amber-500" />
-              <span>Notifications & Approvals</span>
+              <Bell className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span className="truncate">Notifications & Approvals</span>
               {totalNotifications > 0 && (
-                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse shrink-0">
                   {totalNotifications}
                 </span>
               )}
@@ -360,10 +360,11 @@ export default function ManagerDashboard() {
               }}
               variant="outline"
               size="sm"
-              className="flex items-center gap-2 text-xs font-medium"
+              className="flex items-center justify-center gap-1.5 text-xs font-medium h-9 shrink-0 px-3"
+              title="Refresh Data"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Refresh</span>
+              <span className="hidden xs:inline sm:inline">Refresh</span>
             </Button>
           </div>
         </div>
@@ -371,17 +372,17 @@ export default function ManagerDashboard() {
         {/* Notifications & Supervisor Approval Hub (Expandable Card) */}
         {showNotificationsHub && (
           <Card className="border-2 border-amber-500/40 shadow-lg bg-card/95 backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-2">
-            <CardHeader className="p-4 sm:p-5 pb-3 border-b border-border/60">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center">
+            <CardHeader className="p-3.5 sm:p-5 pb-3 border-b border-border/60">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
                     <Bell className="w-4 h-4" />
                   </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold text-foreground">
+                  <div className="min-w-0">
+                    <CardTitle className="text-xs sm:text-sm font-bold text-foreground truncate">
                       Operations Notifications & Approvals Hub
                     </CardTitle>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[10px] sm:text-[11px] text-muted-foreground line-clamp-1">
                       Search supervisor IDs to activate field accounts and review community escalated tickets
                     </p>
                   </div>
@@ -389,14 +390,15 @@ export default function ManagerDashboard() {
 
                 <button
                   onClick={() => setShowNotificationsHub(false)}
-                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary shrink-0"
+                  aria-label="Close hub"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Tabs */}
-              <div className="flex items-center gap-2 pt-3">
+              <div className="flex items-center gap-2 pt-3 flex-wrap">
                 <button
                   type="button"
                   onClick={() => setNotificationTab('approvals')}
@@ -406,7 +408,7 @@ export default function ManagerDashboard() {
                       : 'bg-secondary/60 text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  <UserCheck className="w-3.5 h-3.5" />
+                  <UserCheck className="w-3.5 h-3.5 shrink-0" />
                   <span>Supervisor Approvals</span>
                   {pendingSupervisors.length > 0 && (
                     <span className="ml-1 px-1.5 py-0.2 bg-rose-600 text-white rounded-full text-[10px]">
@@ -424,7 +426,7 @@ export default function ManagerDashboard() {
                       : 'bg-secondary/60 text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
+                  <Sparkles className="w-3.5 h-3.5 shrink-0" />
                   <span>General Alerts</span>
                   {generalAlerts.escalated.length > 0 && (
                     <span className="ml-1 px-1.5 py-0.2 bg-amber-500 text-gray-950 rounded-full text-[10px]">
@@ -435,39 +437,41 @@ export default function ManagerDashboard() {
               </div>
             </CardHeader>
 
-            <CardContent className="p-4 sm:p-5">
+            <CardContent className="p-3.5 sm:p-5">
               {/* TAB 1: SUPERVISOR APPROVALS */}
               {notificationTab === 'approvals' && (
                 <div className="space-y-4">
                   {/* Search Bar for Supervisor ID */}
-                  <form onSubmit={handleSearchSupervisors} className="flex gap-2">
+                  <form onSubmit={handleSearchSupervisors} className="flex flex-col sm:flex-row gap-2">
                     <div className="relative flex-1">
                       <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         type="text"
                         value={supervisorSearch}
                         onChange={(e) => setSupervisorSearch(e.target.value)}
-                        placeholder="Paste or search by Supervisor ID (e.g. SUP-XXXXXX), Name, Email..."
+                        placeholder="Search Supervisor ID (SUP-XXXXXX), Name..."
                         className="pl-9 text-xs h-9 bg-background border-border/80 uppercase font-mono tracking-wider"
                       />
                     </div>
-                    <Button type="submit" size="sm" className="text-xs h-9 px-4">
-                      Search
-                    </Button>
-                    {supervisorSearch && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSupervisorSearch('');
-                          fetchSupervisors('');
-                        }}
-                        className="text-xs h-9 px-3"
-                      >
-                        Clear
+                    <div className="flex items-center gap-2">
+                      <Button type="submit" size="sm" className="text-xs h-9 px-4 flex-1 sm:flex-none">
+                        Search
                       </Button>
-                    )}
+                      {supervisorSearch && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSupervisorSearch('');
+                            fetchSupervisors('');
+                          }}
+                          className="text-xs h-9 px-3 flex-1 sm:flex-none"
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
                   </form>
 
                   {/* Supervisor List */}
@@ -477,7 +481,7 @@ export default function ManagerDashboard() {
                       <span>Searching supervisor directory...</span>
                     </div>
                   ) : supervisors.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-muted-foreground bg-secondary/30 rounded-xl border border-dashed border-border/80">
+                    <div className="py-8 text-center text-xs text-muted-foreground bg-secondary/30 rounded-xl border border-dashed border-border/80 px-4">
                       No supervisors found matching your search. Field supervisors can sign up on the registration page to generate an ID.
                     </div>
                   ) : (
@@ -485,13 +489,13 @@ export default function ManagerDashboard() {
                       {supervisors.map((sup) => (
                         <div
                           key={sup._id}
-                          className="p-3.5 rounded-xl border border-border/80 bg-background/80 hover:border-amber-500/40 transition-all flex flex-col justify-between gap-3 shadow-xs"
+                          className="p-3 sm:p-3.5 rounded-xl border border-border/80 bg-background/80 hover:border-amber-500/40 transition-all flex flex-col justify-between gap-2.5 shadow-xs"
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <div className="space-y-1">
+                            <div className="space-y-1 min-w-0 flex-1">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 {/* Supervisor ID Monospace Badge */}
-                                <span className="font-mono text-xs font-black tracking-wider px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                                <span className="font-mono text-xs font-black tracking-wider px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1 shrink-0">
                                   <span>{sup.supervisorCode || 'NO-ID'}</span>
                                   {sup.supervisorCode && (
                                     <button
@@ -502,6 +506,7 @@ export default function ManagerDashboard() {
                                         setTimeout(() => setCopiedId(null), 2000);
                                       }}
                                       title="Copy ID"
+                                      className="p-0.5 hover:bg-amber-500/20 rounded"
                                     >
                                       {copiedId === sup._id ? (
                                         <Check className="w-3 h-3 text-emerald-500" />
@@ -514,7 +519,7 @@ export default function ManagerDashboard() {
 
                                 {/* Approval Status Badge */}
                                 <span
-                                  className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                                  className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${
                                     sup.isApproved
                                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
                                       : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30'
@@ -524,16 +529,16 @@ export default function ManagerDashboard() {
                                 </span>
                               </div>
 
-                              <p className="text-xs font-bold text-foreground">{sup.name}</p>
-                              <p className="text-[11px] text-muted-foreground">{sup.email}</p>
+                              <p className="text-xs font-bold text-foreground truncate">{sup.name}</p>
+                              <p className="text-[11px] text-muted-foreground break-all">{sup.email}</p>
                               {sup.department && (
-                                <p className="text-[10px] text-primary font-medium">
+                                <p className="text-[10px] text-primary font-medium truncate">
                                   Department: {sup.department}
                                 </p>
                               )}
                             </div>
 
-                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
                               {new Date(sup.createdAt).toLocaleDateString()}
                             </span>
                           </div>
@@ -543,7 +548,7 @@ export default function ManagerDashboard() {
                               <Button
                                 size="sm"
                                 onClick={() => handleApproveSupervisor(sup._id)}
-                                className="text-xs h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1"
+                                className="text-xs h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1 w-full sm:w-auto"
                               >
                                 <Check className="w-3 h-3" />
                                 <span>Approve & Activate</span>
@@ -553,7 +558,7 @@ export default function ManagerDashboard() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleRevokeSupervisor(sup._id)}
-                                className="text-xs h-7 px-2.5 text-rose-600 hover:bg-rose-500/10 border-rose-500/30 gap-1"
+                                className="text-xs h-7 px-2.5 text-rose-600 hover:bg-rose-500/10 border-rose-500/30 gap-1 w-full sm:w-auto"
                               >
                                 <UserX className="w-3 h-3" />
                                 <span>Revoke</span>
@@ -578,17 +583,17 @@ export default function ManagerDashboard() {
                     generalAlerts.escalated.map((rep) => (
                       <div
                         key={rep._id}
-                        className="p-3 rounded-xl border border-border/80 bg-background/80 flex items-center justify-between gap-3 text-xs"
+                        className="p-3 rounded-xl border border-border/80 bg-background/80 flex items-center justify-between gap-2.5 text-xs"
                       >
                         <div className="space-y-0.5 flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-rose-500/10 text-rose-600 border border-rose-500/20">
                               {rep.priority}
                             </span>
-                            <span className="font-semibold text-foreground truncate">
+                            <span className="font-semibold text-foreground truncate max-w-[200px]">
                               {rep.title}
                             </span>
-                            <span className="text-[10px] text-muted-foreground">
+                            <span className="text-[10px] text-muted-foreground shrink-0">
                               (👍 {rep.upvotes} upvotes)
                             </span>
                           </div>
@@ -615,27 +620,27 @@ export default function ManagerDashboard() {
 
         {/* Analytics Snapshot Grid */}
         {analytics && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border border-border/80 shadow-xs bg-card ">
-              <CardContent className="p-5 flex items-center gap-4 mt-2">
-                <div className="w-11 h-11 rounded-xl bg-blue-500/10 text-primary flex items-center justify-center shrink-0">
-                  <BarChart3 className="w-5 h-5" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+            <Card className="border border-border/80 shadow-xs bg-card">
+              <CardContent className="p-3 sm:p-5 flex items-center gap-2.5 sm:gap-4">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-blue-500/10 text-primary flex items-center justify-center shrink-0">
+                  <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">Total Tickets</p>
-                  <p className="text-2xl font-bold text-foreground mt-0.5">{analytics.totalReports}</p>
+                <div className="min-w-0">
+                  <p className="text-[11px] sm:text-xs text-muted-foreground font-medium truncate">Total Tickets</p>
+                  <p className="text-lg sm:text-2xl font-bold text-foreground mt-0.5">{analytics.totalReports}</p>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border border-border/80 shadow-xs bg-card">
-              <CardContent className="p-5 flex items-center gap-4 mt-2">
-                <div className="w-11 h-11 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
-                  <Clock className="w-5 h-5" />
+              <CardContent className="p-3 sm:p-5 flex items-center gap-2.5 sm:gap-4">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                  <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">Pending Review</p>
-                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+                <div className="min-w-0">
+                  <p className="text-[11px] sm:text-xs text-muted-foreground font-medium truncate">Pending Review</p>
+                  <p className="text-lg sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-0.5">
                     {analytics.submittedReports}
                   </p>
                 </div>
@@ -643,13 +648,13 @@ export default function ManagerDashboard() {
             </Card>
 
             <Card className="border border-border/80 shadow-xs bg-card">
-              <CardContent className="p-5 flex items-center gap-4 mt-2">
-                <div className="w-11 h-11 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
-                  <TrendingUp className="w-5 h-5" />
+              <CardContent className="p-3 sm:p-5 flex items-center gap-2.5 sm:gap-4">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">In Progress</p>
-                  <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">
+                <div className="min-w-0">
+                  <p className="text-[11px] sm:text-xs text-muted-foreground font-medium truncate">In Progress</p>
+                  <p className="text-lg sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">
                     {analytics.inProgressReports}
                   </p>
                 </div>
@@ -657,13 +662,13 @@ export default function ManagerDashboard() {
             </Card>
 
             <Card className="border border-border/80 shadow-xs bg-card">
-              <CardContent className="p-5 flex items-center gap-4 mt-2">
-                <div className="w-11 h-11 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
-                  <CheckCircle className="w-5 h-5" />
+              <CardContent className="p-3 sm:p-5 flex items-center gap-2.5 sm:gap-4">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">Resolved Rate</p>
-                  <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                <div className="min-w-0">
+                  <p className="text-[11px] sm:text-xs text-muted-foreground font-medium truncate">Resolved Rate</p>
+                  <p className="text-lg sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
                     {analytics.resolutionRate}%
                   </p>
                 </div>
@@ -674,19 +679,20 @@ export default function ManagerDashboard() {
 
         {/* Filter Bar */}
         <Card className="border border-border/80 shadow-xs bg-card">
-          <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-2 self-start sm:self-auto">
-              <Filter className="w-4 h-4 text-muted-foreground" />
+              <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
               <span className="text-xs font-semibold text-foreground">Filter Queue:</span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
               {/* Status Filter */}
-              <div className="flex-1 sm:w-44">
+              <div className="col-span-1 sm:w-44">
                 <Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="w-full text-xs h-9 bg-card border-border/80"
+                  aria-label="Filter by status"
                 >
                   <option value="all">All Statuses</option>
                   <option value="submitted">Submitted</option>
@@ -698,11 +704,12 @@ export default function ManagerDashboard() {
               </div>
 
               {/* Area Filter */}
-              <div className="flex-1 sm:w-44">
+              <div className="col-span-1 sm:w-44">
                 <Select
                   value={areaFilter}
                   onChange={(e) => setAreaFilter(e.target.value)}
                   className="w-full text-xs h-9 bg-card border-border/80"
+                  aria-label="Filter by ward area"
                 >
                   <option value="all">All Wards / Areas</option>
                   <option value="Central">Central Ward</option>
@@ -722,9 +729,9 @@ export default function ManagerDashboard() {
                   }}
                   variant="ghost"
                   size="sm"
-                  className="text-xs h-9 text-muted-foreground hover:text-foreground"
+                  className="col-span-2 sm:col-span-1 text-xs h-8 sm:h-9 text-muted-foreground hover:text-foreground"
                 >
-                  Reset
+                  Reset Filters
                 </Button>
               )}
             </div>
@@ -733,9 +740,9 @@ export default function ManagerDashboard() {
 
         {/* Queue Reports Table */}
         <Card className="border border-border/80 shadow-xs bg-card overflow-hidden">
-          <CardHeader className="p-5 pb-4 border-b border-border/60 flex flex-row items-center justify-between">
+          <CardHeader className="p-3.5 sm:p-5 pb-3 sm:pb-4 border-b border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="space-y-0.5">
-              <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+              <CardTitle className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
                 <span>Infrastructure Reports Queue</span>
                 <span className="text-xs font-normal text-muted-foreground">
                   ({reports.length} records)
@@ -753,7 +760,7 @@ export default function ManagerDashboard() {
                 <p className="text-xs">Loading queue tickets...</p>
               </div>
             ) : reports.length === 0 ? (
-              <div className="py-16 text-center space-y-2">
+              <div className="py-16 text-center space-y-2 px-4">
                 <AlertCircle className="w-8 h-8 text-muted-foreground mx-auto" />
                 <h4 className="text-sm font-semibold text-foreground">No reports matching filter</h4>
                 <p className="text-xs text-muted-foreground max-w-sm mx-auto">
@@ -921,21 +928,24 @@ export default function ManagerDashboard() {
                     <div 
                       key={report._id}
                       onClick={() => router.push(`/${locale}/reports/${report._id}`)}
-                      className="p-4 space-y-3 hover:bg-secondary/30 transition-colors cursor-pointer"
+                      className="p-3.5 sm:p-4 space-y-3 hover:bg-secondary/30 transition-colors cursor-pointer"
                     >
                       {/* Top Row: Title & Badges */}
-                      <div className="space-y-1.5">
+                      <div className="space-y-1">
                         <div className="flex items-start justify-between gap-2">
-                          <h4 className="font-semibold text-sm text-foreground hover:text-primary transition-colors leading-tight">
+                          <h4 className="font-semibold text-xs sm:text-sm text-foreground hover:text-primary transition-colors leading-snug line-clamp-2">
                             {report.title}
                           </h4>
                           <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border shrink-0 ${getStatusBadge(report.status)}`}>
                             {report.status.replace('_', ' ')}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                          {report.address}
-                        </p>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <MapPin className="w-3.5 h-3.5 shrink-0 text-muted-foreground/70" />
+                          <p className="line-clamp-1 text-[11px] sm:text-xs">
+                            {report.address}
+                          </p>
+                        </div>
                       </div>
 
                       {/* Progress Bar */}
@@ -943,33 +953,36 @@ export default function ManagerDashboard() {
                         <IssueProgressBar status={report.status} showLabels={false} size="sm" />
                       </div>
 
-                      {/* Details Row: Area, Priority, Reporter */}
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground pt-1">
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border uppercase ${getPriorityBadge(report.priority)}`}>
+                      {/* Details Row: Area, Priority, Reporter, Votes */}
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground pt-0.5">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${getPriorityBadge(report.priority)}`}>
                           {report.priority}
                         </span>
-                        <span className="bg-secondary/80 px-2 py-0.5 rounded text-[11px] font-medium text-foreground">
+                        <span className="bg-secondary/80 px-2 py-0.5 rounded text-[10px] font-medium text-foreground">
                           {report.area || 'Ward Area'}
                         </span>
                         <span>•</span>
-                        <span className="text-[11px] truncate">By {report.reportedBy?.name || 'Citizen'}</span>
+                        <span className="truncate max-w-[120px]">By {report.reportedBy?.name || 'Citizen'}</span>
                         <span>•</span>
-                        <span className="text-[11px] font-semibold text-foreground">👍 {report.upvotes || 0}</span>
+                        <span className="font-semibold text-foreground">👍 {report.upvotes || 0}</span>
                       </div>
 
                       {/* Field Supervisor Assignment on Mobile */}
-                      <div className="flex items-center justify-between gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
-                        <span className="text-xs text-muted-foreground font-medium">Supervisor:</span>
+                      <div className="flex items-center justify-between gap-2 pt-1 bg-secondary/20 p-2 rounded-lg border border-border/40" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium shrink-0">
+                          <User className="w-3.5 h-3.5 text-primary" />
+                          <span className="text-[11px] sm:text-xs">Supervisor:</span>
+                        </div>
                         <Select
                           value={report.assignedTo?._id || ''}
                           onChange={(e) => handleAssignReport(report._id, e.target.value)}
-                          className="h-7 text-[11px] w-44 bg-card border-border/80"
+                          className="h-8 text-xs flex-1 max-w-[210px] bg-card border-border/80 rounded-md"
                           aria-label="Assign supervisor"
                         >
                           <option value="">Unassigned</option>
                           {approvedSupervisors.map((sup) => (
                             <option key={sup._id} value={sup._id}>
-                              {sup.name} ({sup.department || 'Field'})
+                              {sup.name} ({sup.supervisorCode || sup.department || 'Field'})
                             </option>
                           ))}
                         </Select>
@@ -980,7 +993,7 @@ export default function ManagerDashboard() {
                         {/* Approval State */}
                         <div>
                           {report.approvedBy ? (
-                            <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 text-xs">
+                            <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 text-xs bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
                               <Check className="w-3.5 h-3.5" />
                               <span>Approved</span>
                             </span>
@@ -989,7 +1002,7 @@ export default function ManagerDashboard() {
                               onClick={() => handleApproveReport(report._id)}
                               variant="outline"
                               size="sm"
-                              className="h-7 text-xs px-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                              className="h-8 text-xs px-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 font-medium"
                             >
                               Approve
                             </Button>
@@ -997,7 +1010,7 @@ export default function ManagerDashboard() {
                         </div>
 
                         {/* Status Select & View */}
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
                           {['resolved', 'rejected'].includes(report.status) && user?.role !== 'admin' ? (
                             <span className="text-[11px] text-muted-foreground italic px-2">
                               {report.status === 'resolved' ? 'Resolved' : 'Rejected'}
@@ -1011,7 +1024,7 @@ export default function ManagerDashboard() {
                                   openStatusModal(report, next);
                                 }
                               }}
-                              className="h-8 text-xs w-28 bg-card border-border/80 rounded-lg px-2 font-medium"
+                              className="h-8 text-xs w-32 bg-card border-border/80 rounded-md px-2 font-medium cursor-pointer"
                               aria-label="Lifecycle action"
                             >
                               <option value="" disabled>
@@ -1024,7 +1037,7 @@ export default function ManagerDashboard() {
                                 <option value="resolved">Resolve Issue</option>
                               )}
                               {!['resolved', 'rejected', 'closed'].includes(report.status) && (
-                                <option value="rejected">Reject</option>
+                                <option value="rejected">Reject Report</option>
                               )}
                               {user?.role === 'admin' && ['resolved', 'rejected'].includes(report.status) && (
                                 <option value="in_progress">Reopen</option>
@@ -1034,7 +1047,7 @@ export default function ManagerDashboard() {
 
                           <Link 
                             href={`/${locale}/reports/${report._id}`}
-                            className="p-1.5 rounded-lg bg-secondary/80 hover:bg-secondary text-foreground transition-colors flex items-center justify-center shrink-0"
+                            className="h-8 w-8 rounded-md bg-secondary/80 hover:bg-secondary text-foreground transition-colors flex items-center justify-center shrink-0 border border-border/60"
                             title="Open Ticket"
                           >
                             <ArrowUpRight className="w-4 h-4" />
