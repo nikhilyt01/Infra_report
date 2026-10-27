@@ -1,6 +1,9 @@
 import { NextResponse, NextRequest } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Report from '@/models/Report';
+import User from '@/models/User';
+import ReportHistory, { ActionType } from '@/models/ReportHistory';
+import { validateStatusTransition } from '@/lib/reportLifecycle';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -28,6 +31,7 @@ export async function GET(
     const report = await Report.findById(id)
       .populate('reportedBy', 'name email avatar')
       .populate('assignedTo', 'name email avatar')
+      .populate('assignedBy', 'name email avatar')
       .populate('approvedBy', 'name email avatar')
       .populate('initiatedBy', 'name email avatar');
     
@@ -105,42 +109,157 @@ export async function PATCH(
       );
     }
 
-    // Update allowed fields. approvedBy/initiatedBy are deliberately absent —
-    // they identify who acted, so they're taken from the token below rather
-    // than from the request body.
-    const allowedFields = [
-      'status',
-      'priority',
-      'assignedTo',
-      'resolutionNote',
-      'resolutionImages',
-      'estimatedResolutionDate',
-    ];
+    // Retrieve full actor details from DB
+    const dbUser = await User.findById(user.userId).select('name email role');
+    const actorId = String(user.userId);
+    const actorName = dbUser?.name || user.email || 'Municipal Staff';
+    const actorRole = dbUser?.role || user.role;
+    const ipAddress =
+      request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+      request.headers.get('x-real-ip') ||
+      undefined;
 
     const updates: any = {};
-    allowedFields.forEach(field => {
-      if (body[field] !== undefined) {
-        updates[field] = body[field];
-      }
-    });
 
-    // Set resolvedAt if status changed to resolved
-    if (body.status === 'resolved' && report.status !== 'resolved') {
-      updates.resolvedAt = new Date();
+    // 1. Status Transition & Validation
+    if (body.status !== undefined && body.status !== report.status) {
+      const resImages: string[] = Array.isArray(body.resolutionImages)
+        ? body.resolutionImages.filter((img: any) => typeof img === 'string' && img.trim().length > 0)
+        : [];
+
+      const transitionValidation = validateStatusTransition(report.status, body.status, {
+        note: body.note || body.resolutionNote,
+        reason: body.reason,
+        resolutionImages: resImages,
+        userRole: actorRole,
+      });
+
+      if (!transitionValidation.valid) {
+        return NextResponse.json(
+          { success: false, error: transitionValidation.error || 'Invalid status transition' },
+          { status: transitionValidation.statusCode || 400 }
+        );
+      }
+
+      const noteText = (body.note || body.reason || body.resolutionNote || '').trim();
+
+      let actionType: ActionType = 'status_changed';
+      if (body.status === 'resolved') {
+        actionType = 'resolved';
+      } else if (transitionValidation.isReopen) {
+        actionType = 'reopened';
+      }
+
+      // Create immutable history entry for the status change
+      await ReportHistory.create({
+        reportId: String(report._id),
+        fromStatus: report.status,
+        toStatus: body.status,
+        note: noteText || undefined,
+        resolutionImages: resImages,
+        actorId,
+        actorName,
+        actorRole,
+        actionType,
+        performedBy: actorId,
+        previousValue: report.status,
+        newValue: body.status,
+        comment: noteText || undefined,
+        timestamp: new Date(),
+        ipAddress,
+      });
+
+      updates.status = body.status;
+
+      if (noteText) {
+        updates.latestStatusNote = noteText;
+      }
+
+      if (body.status === 'resolved') {
+        updates.resolvedAt = new Date();
+        updates.resolutionImages = resImages;
+        if (noteText) {
+          updates.resolutionNote = noteText;
+        }
+      }
+
+      if (body.status === 'in_progress' && !report.initiatedBy) {
+        updates.initiatedBy = actorId;
+        updates.initiatedAt = new Date();
+      }
     }
 
-    // Attribute the approval to the caller, not to whoever the body names.
+    // 2. Assignment Handling
+    if (body.assignedTo !== undefined && String(body.assignedTo || '') !== String(report.assignedTo || '')) {
+      let assigneeName = 'Unassigned';
+      if (body.assignedTo) {
+        const assignee = await User.findById(body.assignedTo).select('name email role');
+        assigneeName = assignee?.name || 'Staff Member';
+      }
+
+      const assignNote = (
+        body.assignmentNote ||
+        body.note ||
+        (body.assignedTo ? `Assigned report to ${assigneeName}` : 'Report unassigned')
+      ).trim();
+
+      await ReportHistory.create({
+        reportId: String(report._id),
+        fromStatus: updates.status || report.status,
+        toStatus: updates.status || report.status,
+        note: assignNote,
+        resolutionImages: [],
+        actorId,
+        actorName,
+        actorRole,
+        actionType: report.assignedTo ? 'reassigned' : 'assigned',
+        performedBy: actorId,
+        previousValue: report.assignedTo ? String(report.assignedTo) : undefined,
+        newValue: body.assignedTo ? String(body.assignedTo) : undefined,
+        comment: assignNote,
+        timestamp: new Date(),
+        ipAddress,
+      });
+
+      updates.assignedTo = body.assignedTo || null;
+      updates.assignedBy = actorId;
+      updates.assignedAt = new Date();
+    }
+
+    // 3. Priority changes
+    if (body.priority !== undefined && body.priority !== report.priority) {
+      updates.priority = body.priority;
+
+      await ReportHistory.create({
+        reportId: String(report._id),
+        fromStatus: updates.status || report.status,
+        toStatus: updates.status || report.status,
+        note: `Priority changed from ${report.priority} to ${body.priority}`,
+        resolutionImages: [],
+        actorId,
+        actorName,
+        actorRole,
+        actionType: 'priority_changed',
+        performedBy: actorId,
+        previousValue: report.priority,
+        newValue: body.priority,
+        comment: `Priority updated to ${body.priority}`,
+        timestamp: new Date(),
+        ipAddress,
+      });
+    }
+
+    // 4. Initial Approval tracking
     if (body.approvedBy !== undefined && !report.approvedBy) {
-      updates.approvedBy = String(user.userId);
+      updates.approvedBy = actorId;
       updates.approvedAt = new Date();
     }
 
-    // Same for whoever kicked off the work, on the first move to in_progress.
-    if (body.status === 'in_progress' && report.status !== 'in_progress') {
-      updates.initiatedBy = String(user.userId);
-      updates.initiatedAt = new Date();
+    // 5. Estimated resolution date
+    if (body.estimatedResolutionDate !== undefined) {
+      updates.estimatedResolutionDate = body.estimatedResolutionDate;
     }
-    
+
     const updatedReport = await Report.findByIdAndUpdate(
       id,
       { $set: updates },
@@ -148,9 +267,10 @@ export async function PATCH(
     )
       .populate('reportedBy', 'name email avatar')
       .populate('assignedTo', 'name email avatar')
+      .populate('assignedBy', 'name email avatar')
       .populate('approvedBy', 'name email avatar')
       .populate('initiatedBy', 'name email avatar');
-    
+
     return NextResponse.json({
       success: true,
       data: updatedReport,

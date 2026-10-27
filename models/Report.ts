@@ -30,7 +30,9 @@ export interface IReport {
   
   // User relationships
   reportedBy: string; // Reference to User (citizen)
-  assignedTo?: string; // Reference to User (city_manager)
+  assignedTo?: string; // Reference to User (city_manager / supervisor)
+  assignedBy?: string; // Reference to User who assigned the report
+  assignedAt?: Date; // When the report was assigned
   approvedBy?: string; // Reference to User who approved the report
   approvedAt?: Date; // When the report was approved
   initiatedBy?: string; // Reference to User who initiated the resolution
@@ -45,6 +47,7 @@ export interface IReport {
   resolvedAt?: Date;
   resolutionNote?: string;
   resolutionImages?: string[]; // Before/after images
+  latestStatusNote?: string; // Cached note from most recent status change
   estimatedResolutionDate?: Date;
   
   // Municipality
@@ -136,6 +139,13 @@ const ReportSchema = new Schema<IReport>(
       type: String,
       ref: User,
     },
+    assignedBy: {
+      type: String,
+      ref: User,
+    },
+    assignedAt: {
+      type: Date,
+    },
     approvedBy: {
       type: String,
       ref: User,
@@ -175,6 +185,11 @@ const ReportSchema = new Schema<IReport>(
     resolutionImages: {
       type: [String],
       default: [],
+    },
+    latestStatusNote: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
     },
     estimatedResolutionDate: {
       type: Date,

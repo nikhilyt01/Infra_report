@@ -1,4 +1,5 @@
 import mongoose, { Schema, Model, models } from 'mongoose';
+import User from './User';
 
 export type ActionType = 
   | 'created' 
@@ -14,10 +15,17 @@ export type ActionType =
 export interface IReportHistory {
   _id?: string;
   reportId: string; // Reference to Report
+  fromStatus?: string | null;
+  toStatus?: string;
+  note?: string;
+  resolutionImages?: string[];
+  actorId?: string; // Reference to User
+  actorName?: string;
+  actorRole?: string; // 'admin' | 'manager' | 'supervisor' | 'user' | 'system'
+
+  // Backward compatibility with previous schema
   actionType: ActionType;
-  performedBy: string; // Reference to User
-  
-  // Change details
+  performedBy?: string; // Reference to User
   previousValue?: string;
   newValue?: string;
   comment?: string;
@@ -26,6 +34,7 @@ export interface IReportHistory {
   timestamp: Date;
   ipAddress?: string;
   createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const ReportHistorySchema = new Schema<IReportHistory>(
@@ -34,6 +43,36 @@ const ReportHistorySchema = new Schema<IReportHistory>(
       type: String,
       required: [true, 'Report ID is required'],
       index: true,
+    },
+    fromStatus: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    toStatus: {
+      type: String,
+      trim: true,
+    },
+    note: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
+    },
+    resolutionImages: {
+      type: [String],
+      default: [],
+    },
+    actorId: {
+      type: String,
+      ref: User,
+    },
+    actorName: {
+      type: String,
+      trim: true,
+    },
+    actorRole: {
+      type: String,
+      trim: true,
     },
     actionType: {
       type: String,
@@ -49,10 +88,10 @@ const ReportHistorySchema = new Schema<IReportHistory>(
         'reopened',
       ],
       required: [true, 'Action type is required'],
+      default: 'status_changed',
     },
     performedBy: {
       type: String,
-      required: [true, 'Performer is required'],
     },
     previousValue: {
       type: String,
@@ -65,7 +104,7 @@ const ReportHistorySchema = new Schema<IReportHistory>(
     comment: {
       type: String,
       trim: true,
-      maxlength: 500,
+      maxlength: 1000,
     },
     timestamp: {
       type: Date,
@@ -84,7 +123,9 @@ const ReportHistorySchema = new Schema<IReportHistory>(
 );
 
 // Compound index for querying report history
+ReportHistorySchema.index({ reportId: 1, createdAt: -1 });
 ReportHistorySchema.index({ reportId: 1, timestamp: -1 });
+ReportHistorySchema.index({ actorId: 1, createdAt: -1 });
 ReportHistorySchema.index({ performedBy: 1, timestamp: -1 });
 
 // Prevent model recompilation in development

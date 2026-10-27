@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Report from '@/models/Report';
 import ReportHistory from '@/models/ReportHistory';
+import User from '@/models/User';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -127,12 +128,25 @@ export async function POST(request: NextRequest) {
       status: 'submitted',
     });
     
+    // Retrieve reporter details
+    const reporter = await User.findById(user.userId).select('name email role');
+    const actorName = reporter?.name || user.email || 'Citizen';
+    const actorRole = reporter?.role || user.role || 'user';
+
     // Create history entry
     await ReportHistory.create({
-      reportId: report._id,
+      reportId: String(report._id),
+      fromStatus: null,
+      toStatus: 'submitted',
+      note: 'Report created by citizen',
+      resolutionImages: images || [],
+      actorId: String(user.userId),
+      actorName,
+      actorRole,
       actionType: 'created',
-      performedBy: user.userId,
+      performedBy: String(user.userId),
       newValue: 'submitted',
+      comment: 'Report created by citizen',
       timestamp: new Date(),
     });
     
