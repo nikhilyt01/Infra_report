@@ -119,7 +119,17 @@ UserSchema.methods.comparePassword = async function(candidatePassword: string): 
   }
 };
 
-// Prevent model recompilation in development
+// Ensure User model always has the latest schema enum values across HMR
+if (models && models.User) {
+  const roleEnum: string[] = (models.User.schema?.path('role') as any)?.enumValues || [];
+  if (!roleEnum.includes('supervisor')) {
+    delete (models as any).User;
+    if ((mongoose as any).connection?.models) {
+      delete (mongoose as any).connection.models.User;
+    }
+  }
+}
+
 const User: Model<IUser> = models.User || mongoose.model<IUser>('User', UserSchema);
 
 export default User;

@@ -60,8 +60,9 @@ export async function POST(request: NextRequest) {
 
     // Ensure supervisor always has a unique ID
     if (user.role === 'supervisor' && !user.supervisorCode) {
-      user.supervisorCode = `SUP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-      await user.save();
+      const generatedCode = `SUP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      user.supervisorCode = generatedCode;
+      await User.updateOne({ _id: user._id }, { $set: { supervisorCode: generatedCode } });
     }
 
     // Generate JWT token
