@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -10,28 +11,38 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { Label } from '@/components/ui/Label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
-import { 
-  Camera, X, MapPin, ArrowLeft, UploadCloud, 
-  FileText, CheckCircle, AlertCircle, Loader2, Navigation
+import {
+  Camera, X, MapPin, ArrowLeft,
+  FileText, CheckCircle, AlertCircle, Loader2,
+  ShieldCheck, Lock, Satellite,
 } from 'lucide-react';
+
+interface CapturedPhoto {
+  file: File;
+  preview: string;
+  lat: number;
+  lng: number;
+  address: string;
+  capturedAt: string;
+}
 
 export default function NewReportPage() {
   const router = useRouter();
   const params = useParams();
   const locale = (params.locale as string) || 'en';
-  
+  const t = useTranslations('ReportForm');
+
   const [loading, setLoading] = useState(false);
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
-  const [imagePreview, setImagePreview] = useState<string[]>([]);
-  const [locationLoading, setLocationLoading] = useState(false);
+  const [capturedPhotos, setCapturedPhotos] = useState<CapturedPhoto[]>([]);
   const [cameraActive, setCameraActive] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  
+  const [gpsLockLoading, setGpsLockLoading] = useState(false);
+  const [error, setError] = useState('');
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -41,246 +52,182 @@ export default function NewReportPage() {
     landmark: '',
     priority: 'medium',
     location: {
-      coordinates: [0, 0], // [longitude, latitude]
+      coordinates: [0, 0] as [number, number],
     },
   });
 
-  const handleGetCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser');
-      return;
-    }
-
-    setLocationLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { longitude, latitude } = position.coords;
-        setFormData((prev) => ({
-          ...prev,
-          location: {
-            coordinates: [longitude, latitude],
-          },
-        }));
-        
-        reverseGeocode(latitude, longitude);
-        setLocationLoading(false);
-      },
-      (error) => {
-        console.error('Error getting location:', error);
-        alert('Failed to get your GPS location. Please enter address manually.');
-        setLocationLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
-
-  const reverseGeocode = async (lat: number, lng: number) => {
+  // ── Reverse geocode helper ──────────────────────────────────────
+  const reverseGeocode = useCallback(async (lat: number, lng: number): Promise<string> => {
     try {
-      const response = await fetch(
+      const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
       );
-      const data = await response.json();
-      
-      if (data.display_name) {
-        setFormData((prev) => ({
-          ...prev,
-          address: data.display_name,
-          area: data.address?.suburb || data.address?.neighbourhood || data.address?.city_district || '',
-        }));
+      const data = await res.json();
+      return data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    } catch {
+      return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    }
+  }, []);
+
+  // ── Get GPS at time of capture ──────────────────────────────────
+  const getCurrentGPS = (): Promise<{ lat: number; lng: number }> =>
+    new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation not supported'));
+        return;
       }
-    } catch (error) {
-      console.error('Error reverse geocoding:', error);
-    }
-  };
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (err) => reject(err),
+        { enableHighAccuracy: true, timeout: 12000 }
+      );
+    });
 
+  // ── Camera ──────────────────────────────────────────────────────
   const startCamera = async () => {
-    if (selectedImages.length >= 10) {
-      alert('Maximum 10 photos allowed per report');
-      return;
-    }
-
+    if (capturedPhotos.length >= 10) return;
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
-      
       streamRef.current = mediaStream;
       setStream(mediaStream);
       setCameraActive(true);
-      
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
           videoRef.current.onloadedmetadata = async () => {
-            try {
-              await videoRef.current?.play();
-            } catch (playError) {
-              console.error('Error playing video:', playError);
-            }
+            try { await videoRef.current?.play(); } catch { /* ignore */ }
           };
         }
       }, 100);
-    } catch (error: any) {
-      console.error('Error accessing camera:', error);
-      alert(`Unable to access camera: ${error.message || 'Please check permissions.'}`);
+    } catch (err: any) {
+      setError(t('errCameraFail', { msg: err.message || 'Permission denied' }));
     }
   };
 
   const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => {
-        try {
-          track.stop();
-        } catch (e) {
-          console.error(e);
-        }
-      });
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      try {
-        videoRef.current.srcObject = null;
-      } catch (e) {
-        // ignore
-      }
-    }
+    streamRef.current?.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
+    streamRef.current = null;
+    if (videoRef.current) { try { videoRef.current.srcObject = null; } catch { /* ignore */ } }
     setStream(null);
     setCameraActive(false);
   };
 
+  /**
+   * KEY FEATURE: Capture photo AND GPS at the same instant.
+   * No gallery upload is allowed — the coordinates come from live geolocation
+   * at the exact moment of shutter press, so they cannot be spoofed.
+   */
   const capturePhoto = async () => {
-    if (!videoRef.current || !canvasRef.current) {
-      return;
-    }
-
+    if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    
+
     if (video.videoWidth === 0 || video.videoHeight === 0) {
-      alert('Camera is initializing. Please wait a moment and try again.');
-      return;
-    }
-    
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      canvas.toBlob(async (blob) => {
-        if (blob) {
-          const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
-          const preview = canvas.toDataURL('image/jpeg');
-          
-          setSelectedImages((prev) => [...prev, file]);
-          setImagePreview((prev) => [...prev, preview]);
-          
-          if (formData.location.coordinates[0] !== 0 && formData.location.coordinates[1] !== 0) {
-            await captureSatelliteImage();
-          }
-          
-          stopCamera();
-        } else {
-          alert('Failed to capture photo. Please try again.');
-        }
-      }, 'image/jpeg', 0.9);
-    }
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-
-    if (selectedImages.length + files.length > 10) {
-      alert('You can upload a maximum of 10 photos');
+      setError(t('errCameraInit'));
       return;
     }
 
-    const validFiles: File[] = [];
-    const previews: string[] = [];
+    setGpsLockLoading(true);
+    setError('');
 
-    files.forEach((file) => {
-      if (file.type.startsWith('image/')) {
-        validFiles.push(file);
-        previews.push(URL.createObjectURL(file));
-      }
-    });
-
-    setSelectedImages((prev) => [...prev, ...validFiles]);
-    setImagePreview((prev) => [...prev, ...previews]);
-  };
-
-  const captureSatelliteImage = async () => {
     try {
-      const [lng, lat] = formData.location.coordinates;
-      const googleMapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-      const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
-      
-      let satelliteUrl = '';
-      if (googleMapsKey) {
-        satelliteUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=16&size=640x640&scale=2&maptype=hybrid&key=${googleMapsKey}`;
-      } else if (mapboxToken) {
-        const width = 1280;
-        const height = 1280;
-        satelliteUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${lng},${lat},14,0,0/${width}x${height}@2x?access_token=${mapboxToken}`;
-      } else {
-        return;
-      }
+      // 1. Grab GPS FIRST (before the blob is created, so timing is tight)
+      const { lat, lng } = await getCurrentGPS();
 
-      const response = await fetch(satelliteUrl);
-      if (!response.ok) return;
+      // 2. Paint frame to canvas and extract blob
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      const imageBlob = await response.blob();
-      const satelliteFile = new File(
-        [imageBlob], 
-        `satellite-${Date.now()}.jpg`, 
-        { type: 'image/jpeg' }
+      const blob: Blob = await new Promise((resolve, reject) =>
+        canvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error('blob null'))),
+          'image/jpeg', 0.9
+        )
       );
 
-      const satellitePreview = URL.createObjectURL(imageBlob);
-      setSelectedImages((prev) => [...prev, satelliteFile]);
-      setImagePreview((prev) => [...prev, satellitePreview]);
-    } catch (error) {
-      console.error('Satellite capture error:', error);
+      const file = new File([blob], `live-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      const preview = canvas.toDataURL('image/jpeg');
+
+      // 3. Reverse geocode the locked coordinates
+      const resolvedAddress = await reverseGeocode(lat, lng);
+      const areaGuess = resolvedAddress.split(',')[2]?.trim() || '';
+
+      const photo: CapturedPhoto = {
+        file,
+        preview,
+        lat,
+        lng,
+        address: resolvedAddress,
+        capturedAt: new Date().toISOString(),
+      };
+
+      setCapturedPhotos((prev) => [...prev, photo]);
+
+      // Auto-fill location fields from first photo
+      if (capturedPhotos.length === 0) {
+        setFormData((prev) => ({
+          ...prev,
+          location: { coordinates: [lng, lat] },
+          address: prev.address || resolvedAddress,
+          area: prev.area || areaGuess,
+        }));
+      }
+
+      stopCamera();
+    } catch (err: any) {
+      if (err.code === 1) {
+        setError('Location permission denied. Please allow location access and try again.');
+      } else if (err.message === 'blob null') {
+        setError(t('errCaptureFail'));
+      } else {
+        setError(`GPS error: ${err.message}`);
+      }
+    } finally {
+      setGpsLockLoading(false);
     }
   };
 
-  const removeImage = (index: number) => {
-    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
-    setImagePreview((prev) => prev.filter((_, i) => i !== index));
+  const removePhoto = (index: number) => {
+    setCapturedPhotos((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      // If first photo removed, re-lock to remaining first photo's coords
+      if (index === 0 && next.length > 0) {
+        setFormData((fd) => ({
+          ...fd,
+          location: { coordinates: [next[0].lng, next[0].lat] },
+          address: fd.address,
+        }));
+      } else if (next.length === 0) {
+        setFormData((fd) => ({ ...fd, location: { coordinates: [0, 0] } }));
+      }
+      return next;
+    });
   };
 
+  // Cleanup camera on unmount
   useEffect(() => {
     return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => {
-          try {
-            track.stop();
-          } catch (e) {
-            console.error(e);
-          }
-        });
-        streamRef.current = null;
-      }
+      streamRef.current?.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
     };
   }, []);
 
+  // ── Submit ──────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setError('');
+
     if (!formData.title.trim() || !formData.description.trim() || !formData.category.trim() || !formData.address.trim()) {
-      alert('Please complete all required fields (*)');
+      setError(t('errRequiredFields'));
       return;
     }
 
     if (formData.location.coordinates[0] === 0 && formData.location.coordinates[1] === 0) {
-      alert('Please detect or pin your location before submitting');
+      setError(t('errNoLocation'));
       return;
     }
 
@@ -288,110 +235,102 @@ export default function NewReportPage() {
 
     try {
       let imageUrls: string[] = [];
-      if (selectedImages.length > 0) {
-        const imageFormData = new FormData();
-        selectedImages.forEach((file) => {
-          imageFormData.append('files', file);
-        });
+      if (capturedPhotos.length > 0) {
+        const fd = new FormData();
+        capturedPhotos.forEach((p) => fd.append('files', p.file));
 
-        const uploadResponse = await fetch('/api/upload', {
-          method: 'POST',
-          body: imageFormData,
-        });
-
-        const uploadData = await uploadResponse.json();
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd });
+        const uploadData = await uploadRes.json();
         if (uploadData.success) {
           imageUrls = uploadData.data;
         } else {
-          throw new Error('Image upload failed');
+          throw new Error(t('errUploadFail'));
         }
       }
 
-      const response = await fetch('/api/reports', {
+      const res = await fetch('/api/reports', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          images: imageUrls,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, images: imageUrls }),
       });
-
-      const data = await response.json();
+      const data = await res.json();
 
       if (data.success) {
         router.push(`/${locale}/reports`);
       } else {
-        throw new Error(data.error || 'Failed to submit report');
+        throw new Error(data.error || t('errSubmitFail'));
       }
-    } catch (error: any) {
-      console.error('Error submitting report:', error);
-      alert(error.message || 'Failed to submit report. Please try again.');
+    } catch (err: any) {
+      setError(err.message || t('errSubmitFail'));
     } finally {
       setLoading(false);
     }
   };
 
+  const hasGPS = formData.location.coordinates[0] !== 0;
+
+  // ── Render ──────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Top Navbar */}
       <Navbar />
 
-      {/* Main Container */}
       <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6 flex-1">
-        {/* Navigation Breadcrumb & Back Action */}
+        {/* Breadcrumb */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/60">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
-              <Link href={`/${locale}`} className="hover:text-foreground transition-colors">
-                Home
-              </Link>
+              <Link href={`/${locale}`} className="hover:text-foreground transition-colors">{t('breadcrumbHome')}</Link>
               <span>/</span>
-              <Link href={`/${locale}/reports`} className="hover:text-foreground transition-colors">
-                Reports
-              </Link>
+              <Link href={`/${locale}/reports`} className="hover:text-foreground transition-colors">{t('breadcrumbReports')}</Link>
               <span>/</span>
-              <span className="text-foreground">New Issue</span>
+              <span className="text-foreground">{t('breadcrumbNew')}</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-              Report Infrastructure Issue
-            </h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{t('pageTitle')}</h1>
           </div>
 
           <Button
-            type="button"
-            variant="outline"
+            type="button" variant="outline"
             onClick={() => router.push(`/${locale}/reports`)}
             className="self-start sm:self-auto flex items-center gap-2 text-xs font-medium"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Reports</span>
+            <span>{t('backBtn')}</span>
           </Button>
         </div>
 
-        {/* Form Card */}
+        {/* Global error */}
+        {error && (
+          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-destructive/10 border border-destructive/30 text-sm">
+            <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+            <span className="text-destructive font-medium">{error}</span>
+          </div>
+        )}
+
+        {/* Anti-spoof banner */}
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/5 border border-primary/20 text-xs">
+          <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+          <span className="text-primary/80 font-medium">{t('securityNote')}</span>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Section 1: Issue Classification */}
+          {/* ── Section 1: Classification ───────────────────────── */}
           <Card className="border border-border/80 shadow-xs">
             <CardHeader className="pb-4 border-b border-border/60">
               <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
                 <FileText className="w-4 h-4 text-primary" />
-                <span>1. Issue Classification & Details</span>
+                <span>{t('section1Title')}</span>
               </CardTitle>
-              <CardDescription className="text-xs">
-                Provide a clear title, category, and severity priority for civic authorities
-              </CardDescription>
+              <CardDescription className="text-xs">{t('section1Desc')}</CardDescription>
             </CardHeader>
             <CardContent className="p-5 space-y-4">
               {/* Title */}
               <div className="space-y-1.5">
                 <Label htmlFor="title" className="text-xs font-medium text-foreground">
-                  Issue Title <span className="text-destructive">*</span>
+                  {t('titleLabel')} <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="title"
-                  placeholder="e.g., Deep pothole on 5th Cross Road, water stagnation"
+                  placeholder={t('titlePlaceholder')}
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   maxLength={200}
@@ -404,11 +343,11 @@ export default function NewReportPage() {
                 {/* Category */}
                 <div className="space-y-1.5">
                   <Label htmlFor="category" className="text-xs font-medium text-foreground">
-                    Category <span className="text-destructive">*</span>
+                    {t('categoryLabel')} <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="category"
-                    placeholder="e.g., Roads, Street Lights, Drainage, Water Supply"
+                    placeholder={t('categoryPlaceholder')}
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     maxLength={100}
@@ -420,7 +359,7 @@ export default function NewReportPage() {
                 {/* Priority */}
                 <div className="space-y-1.5">
                   <Label htmlFor="priority" className="text-xs font-medium text-foreground">
-                    Severity Priority
+                    {t('priorityLabel')}
                   </Label>
                   <Select
                     id="priority"
@@ -428,10 +367,10 @@ export default function NewReportPage() {
                     onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
                     className="h-10 text-sm"
                   >
-                    <option value="low">Low - Minor aesthetic issue</option>
-                    <option value="medium">Medium - Standard repair required</option>
-                    <option value="high">High - Causing safety/traffic hazard</option>
-                    <option value="urgent">Urgent - Immediate safety risk</option>
+                    <option value="low">{t('priorityLow')}</option>
+                    <option value="medium">{t('priorityMedium')}</option>
+                    <option value="high">{t('priorityHigh')}</option>
+                    <option value="urgent">{t('priorityUrgent')}</option>
                   </Select>
                 </div>
               </div>
@@ -439,11 +378,11 @@ export default function NewReportPage() {
               {/* Description */}
               <div className="space-y-1.5 pt-1">
                 <Label htmlFor="description" className="text-xs font-medium text-foreground">
-                  Detailed Description <span className="text-destructive">*</span>
+                  {t('descriptionLabel')} <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
                   id="description"
-                  placeholder="Describe the exact issue, dimensions, potential hazards, and how long it has persisted..."
+                  placeholder={t('descriptionPlaceholder')}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={4}
@@ -452,70 +391,49 @@ export default function NewReportPage() {
                   className="text-sm leading-relaxed"
                 />
                 <div className="flex justify-between text-[11px] text-muted-foreground">
-                  <span>Be specific to help municipal teams bring appropriate repair equipment.</span>
-                  <span>{formData.description.length}/2000 chars</span>
+                  <span>{t('descriptionHint')}</span>
+                  <span>{formData.description.length}/2000</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Section 2: Location Information */}
+          {/* ── Section 2: Location (auto-filled from photo) ────── */}
           <Card className="border border-border/80 shadow-xs">
             <CardHeader className="pb-4 border-b border-border/60">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
-                    <MapPin className="w-4 h-4 text-primary" />
-                    <span>2. Geographic Location</span>
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Detect your exact coordinates or specify address and landmark
-                  </CardDescription>
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGetCurrentLocation}
-                  disabled={locationLoading}
-                  className="shrink-0 flex items-center gap-1.5 text-xs bg-secondary/50 font-medium"
-                >
-                  {locationLoading ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Detecting GPS...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Navigation className="w-3.5 h-3.5 text-primary" />
-                      <span>Use Current GPS Location</span>
-                    </>
-                  )}
-                </Button>
-              </div>
+              <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+                <MapPin className="w-4 h-4 text-primary" />
+                <span>{t('section2Title')}</span>
+              </CardTitle>
+              <CardDescription className="text-xs">{t('section2Desc')}</CardDescription>
             </CardHeader>
             <CardContent className="p-5 space-y-4">
-              {formData.location.coordinates[0] !== 0 && (
-                <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg flex items-center justify-between text-xs">
-                  <span className="text-primary font-medium flex items-center gap-1.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                    GPS Coordinates Detected:
+              {/* GPS Status Chip */}
+              {hasGPS ? (
+                <div className="p-3 bg-emerald-500/5 border border-emerald-500/30 rounded-xl flex items-center justify-between text-xs">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5" />
+                    {t('gpsDetected')}
                   </span>
-                  <span className="font-mono text-foreground font-semibold">
+                  <span className="font-mono text-foreground font-bold">
                     {formData.location.coordinates[1].toFixed(6)}, {formData.location.coordinates[0].toFixed(6)}
                   </span>
                 </div>
+              ) : (
+                <div className="p-3 bg-amber-500/5 border border-amber-500/25 rounded-xl flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{t('gpsNone')}</span>
+                </div>
               )}
 
-              {/* Address */}
+              {/* Address (auto-filled but editable) */}
               <div className="space-y-1.5">
                 <Label htmlFor="address" className="text-xs font-medium text-foreground">
-                  Exact Street Address / Location <span className="text-destructive">*</span>
+                  {t('addressLabel')} <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
                   id="address"
-                  placeholder="Full road name, building number, cross street..."
+                  placeholder={t('addressPlaceholder')}
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   rows={2}
@@ -526,24 +444,20 @@ export default function NewReportPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="area" className="text-xs font-medium text-foreground">
-                    Area / Ward / Suburb
-                  </Label>
+                  <Label htmlFor="area" className="text-xs font-medium text-foreground">{t('areaLabel')}</Label>
                   <Input
                     id="area"
-                    placeholder="e.g., Ward 4, Indiranagar"
+                    placeholder={t('areaPlaceholder')}
                     value={formData.area}
                     onChange={(e) => setFormData({ ...formData, area: e.target.value })}
                     className="h-10 text-sm"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="landmark" className="text-xs font-medium text-foreground">
-                    Nearby Landmark
-                  </Label>
+                  <Label htmlFor="landmark" className="text-xs font-medium text-foreground">{t('landmarkLabel')}</Label>
                   <Input
                     id="landmark"
-                    placeholder="e.g., Near Metro Station Gate 2"
+                    placeholder={t('landmarkPlaceholder')}
                     value={formData.landmark}
                     onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
                     className="h-10 text-sm"
@@ -553,103 +467,134 @@ export default function NewReportPage() {
             </CardContent>
           </Card>
 
-          {/* Section 3: Live Photo Evidence */}
+          {/* ── Section 3: Live Camera Only ─────────────────────── */}
           <Card className="border border-border/80 shadow-xs">
             <CardHeader className="pb-4 border-b border-border/60">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
                     <Camera className="w-4 h-4 text-primary" />
-                    <span>3. Live Photo Evidence (Camera Only)</span>
+                    <span>{t('section3Title')}</span>
                   </CardTitle>
-                  <CardDescription className="text-xs">
-                    Capture real-time on-site photos with your device camera (Max 10 photos)
-                  </CardDescription>
+                  <CardDescription className="text-xs mt-0.5">{t('section3Desc')}</CardDescription>
                 </div>
-                <span className="text-xs font-semibold text-muted-foreground">
-                  {selectedImages.length}/10 captured
+                <span className="text-xs font-semibold text-muted-foreground shrink-0">
+                  {capturedPhotos.length}/10
                 </span>
               </div>
             </CardHeader>
             <CardContent className="p-5 space-y-4">
-              {/* Camera Live Viewfinder */}
+
+              {/* Live viewfinder */}
               {cameraActive ? (
                 <div className="space-y-3">
-                  <div className="relative bg-black rounded-xl overflow-hidden min-h-[300px] flex items-center justify-center border border-slate-800 shadow-lg">
+                  <div className="relative bg-black rounded-xl overflow-hidden min-h-[280px] flex items-center justify-center border border-slate-800 shadow-lg">
                     <video
                       ref={videoRef}
-                      playsInline
-                      muted
-                      autoPlay
-                      className="w-full h-auto max-h-[440px] object-cover"
+                      playsInline muted autoPlay
+                      className="w-full h-auto max-h-[420px] object-cover"
                     />
                     {!stream && (
-                      <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-400">
-                        Initializing camera feed...
+                      <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-400 gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {t('cameraInit')}
                       </div>
                     )}
+                    {/* GPS lock overlay while capturing */}
+                    {gpsLockLoading && (
+                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 text-white">
+                        <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
+                        <span className="text-sm font-semibold">Locking GPS coordinates…</span>
+                        <span className="text-xs text-slate-400">Please hold still</span>
+                      </div>
+                    )}
+                    {/* Crosshair overlay */}
+                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                      <div className="w-16 h-16 border-2 border-white/30 rounded-lg" />
+                    </div>
+                    <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/60 text-emerald-400 text-[11px] font-bold px-2 py-1 rounded-lg">
+                      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                      LIVE
+                    </div>
                   </div>
-                  
+
                   <div className="flex gap-3">
                     <Button
                       type="button"
                       onClick={capturePhoto}
-                      className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-xs shadow-xs"
+                      disabled={gpsLockLoading}
+                      className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs shadow-xs gap-2"
                     >
-                      <Camera className="w-4 h-4 mr-2" />
-                      Take Snapshot
+                      {gpsLockLoading ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" />Locking GPS…</>
+                      ) : (
+                        <><Camera className="w-4 h-4" />{t('takeSnapshot')}</>
+                      )}
                     </Button>
-                    <Button
-                      type="button"
-                      onClick={stopCamera}
-                      variant="outline"
-                      className="text-xs"
-                    >
-                      <X className="w-4 h-4 mr-1.5" />
-                      Cancel Camera
+                    <Button type="button" onClick={stopCamera} variant="outline" className="text-xs gap-1.5">
+                      <X className="w-4 h-4" />{t('cancelCamera')}
                     </Button>
                   </div>
                 </div>
               ) : (
-                <div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={startCamera}
-                    disabled={selectedImages.length >= 10}
-                    className="w-full h-20 border border-dashed border-border hover:border-primary hover:bg-secondary/50 flex flex-col items-center justify-center gap-1.5 transition-all rounded-xl"
-                  >
-                    <Camera className="w-6 h-6 text-primary" />
-                    <span className="text-xs font-semibold text-foreground">Open Camera to Take Live Photo</span>
-                    <span className="text-[10px] text-muted-foreground">Photos must be captured live on site</span>
-                  </Button>
-                </div>
+                <button
+                  type="button"
+                  onClick={startCamera}
+                  disabled={capturedPhotos.length >= 10}
+                  className="w-full h-24 border-2 border-dashed border-border hover:border-primary hover:bg-secondary/40
+                    flex flex-col items-center justify-center gap-2 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Camera className="w-6 h-6 text-primary" />
+                  <span className="text-xs font-semibold text-foreground">{t('openCamera')}</span>
+                  <span className="text-[11px] text-muted-foreground">{t('openCameraHint')}</span>
+                </button>
               )}
 
               <canvas ref={canvasRef} className="hidden" />
-              
-              {/* Photo Preview Grid */}
-              {imagePreview.length > 0 && (
-                <div className="pt-2 space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground">Attached Photos:</p>
+
+              {/* Photo grid with GPS badges */}
+              {capturedPhotos.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <p className="text-xs font-medium text-muted-foreground">{t('attachedPhotos')}</p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {imagePreview.map((preview, index) => (
-                      <div key={index} className="relative group rounded-lg overflow-hidden border border-border bg-secondary/50 aspect-video">
+                    {capturedPhotos.map((photo, index) => (
+                      <div
+                        key={index}
+                        className="relative group rounded-xl overflow-hidden border border-border bg-secondary/50 aspect-video"
+                      >
                         <img
-                          src={preview}
+                          src={photo.preview}
                           alt={`Evidence ${index + 1}`}
                           className="w-full h-full object-cover"
                         />
+                        {/* Remove button */}
                         <button
                           type="button"
-                          onClick={() => removeImage(index)}
-                          className="absolute top-1.5 right-1.5 bg-slate-900/90 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive shadow-md"
-                          title="Remove photo"
+                          onClick={() => removePhoto(index)}
+                          className="absolute top-1.5 right-1.5 bg-slate-900/90 text-white rounded-full p-1
+                            opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive shadow-md"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
-                        <span className="absolute bottom-1 left-1.5 bg-black/70 text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
-                          #{index + 1}
+                        {/* GPS locked badge */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                          <span className="text-[9px] text-emerald-400 font-bold truncate">{t('photoGpsTag')}</span>
+                          <span className="text-[8px] text-slate-400 ml-auto">#{index + 1}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* GPS coordinates table */}
+                  <div className="mt-2 p-3 rounded-xl bg-secondary/40 border border-border/60 space-y-1.5">
+                    {capturedPhotos.map((p, i) => (
+                      <div key={i} className="flex items-center gap-2 text-[11px]">
+                        <span className="font-mono text-muted-foreground w-4 shrink-0">#{i + 1}</span>
+                        <Lock className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span className="font-mono text-foreground font-semibold">{p.lat.toFixed(5)}, {p.lng.toFixed(5)}</span>
+                        <span className="text-muted-foreground truncate text-[10px] ml-auto">
+                          {new Date(p.capturedAt).toLocaleTimeString()}
                         </span>
                       </div>
                     ))}
@@ -659,33 +604,25 @@ export default function NewReportPage() {
             </CardContent>
           </Card>
 
-          {/* Action Bar */}
+          {/* ── Action Bar ──────────────────────────────────────── */}
           <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2 pb-12">
             <Button
-              type="button"
-              variant="outline"
+              type="button" variant="outline"
               onClick={() => router.push(`/${locale}/reports`)}
               disabled={loading}
               className="w-full sm:w-auto px-6 py-2.5 text-xs font-medium"
             >
-              Cancel & Return
+              {t('cancelBtn')}
             </Button>
 
             <Button
-              type="submit"
-              disabled={loading}
+              type="submit" disabled={loading}
               className="w-full sm:w-auto px-8 py-2.5 text-xs font-semibold shadow-xs flex items-center justify-center gap-2"
             >
               {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Submitting Ticket...</span>
-                </>
+                <><Loader2 className="w-4 h-4 animate-spin" /><span>{t('submitting')}</span></>
               ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Submit Infrastructure Report</span>
-                </>
+                <><CheckCircle className="w-4 h-4" /><span>{t('submitBtn')}</span></>
               )}
             </Button>
           </div>

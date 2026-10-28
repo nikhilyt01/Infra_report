@@ -487,8 +487,8 @@ export default function ManagerDashboard() {
                   type="button"
                   onClick={() => setNotificationTab('approvals')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${notificationTab === 'approvals'
-                      ? 'bg-amber-500 text-gray-950 shadow-xs'
-                      : 'bg-secondary/60 text-muted-foreground hover:text-foreground'
+                    ? 'bg-amber-500 text-gray-950 shadow-xs'
+                    : 'bg-secondary/60 text-muted-foreground hover:text-foreground'
                     }`}
                 >
                   <UserCheck className="w-3.5 h-3.5 shrink-0" />
@@ -504,8 +504,8 @@ export default function ManagerDashboard() {
                   type="button"
                   onClick={() => setNotificationTab('general')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${notificationTab === 'general'
-                      ? 'bg-primary text-primary-foreground shadow-xs'
-                      : 'bg-secondary/60 text-muted-foreground hover:text-foreground'
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'bg-secondary/60 text-muted-foreground hover:text-foreground'
                     }`}
                 >
                   <Sparkles className="w-3.5 h-3.5 shrink-0" />
@@ -602,8 +602,8 @@ export default function ManagerDashboard() {
                                 {/* Approval Status Badge */}
                                 <span
                                   className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${sup.isApproved
-                                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-                                      : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30'
                                     }`}
                                 >
                                   {sup.isApproved ? 'Approved & Active' : 'Pending Approval'}
@@ -666,11 +666,10 @@ export default function ManagerDashboard() {
                       {managerNotifications.map((n) => (
                         <div
                           key={n._id}
-                          className={`p-3 rounded-xl border flex items-center justify-between gap-2.5 text-xs transition-all ${
-                            !n.isRead
+                          className={`p-3 rounded-xl border flex items-center justify-between gap-2.5 text-xs transition-all ${!n.isRead
                               ? 'border-amber-500/40 bg-amber-500/5'
                               : 'border-border/80 bg-background/80'
-                          }`}
+                            }`}
                         >
                           <div className="space-y-0.5 flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
@@ -958,11 +957,10 @@ export default function ManagerDashboard() {
                               value={report.assignedTo?._id || ''}
                               onChange={(e) => handleAssignReport(report._id, e.target.value)}
                               disabled={['resolved', 'closed', 'rejected'].includes(report.status)}
-                              className={`h-8 text-xs w-44 bg-card border-border/80 rounded-lg px-2 transition-opacity ${
-                                ['resolved', 'closed', 'rejected'].includes(report.status)
+                              className={`h-8 text-xs w-44 bg-card border-border/80 rounded-lg px-2 transition-opacity ${['resolved', 'closed', 'rejected'].includes(report.status)
                                   ? 'opacity-40 cursor-not-allowed pointer-events-none'
                                   : ''
-                              }`}
+                                }`}
                               aria-label="Assign supervisor"
                             >
                               <option value="">Unassigned</option>
@@ -1107,11 +1105,10 @@ export default function ManagerDashboard() {
 
                       {/* Field Supervisor Assignment on Mobile */}
                       <div
-                        className={`flex items-center justify-between gap-2 pt-1 bg-secondary/20 p-2 rounded-lg border border-border/40 transition-opacity ${
-                          ['resolved', 'closed', 'rejected'].includes(report.status)
+                        className={`flex items-center justify-between gap-2 pt-1 bg-secondary/20 p-2 rounded-lg border border-border/40 transition-opacity ${['resolved', 'closed', 'rejected'].includes(report.status)
                             ? 'opacity-40 pointer-events-none'
                             : ''
-                        }`}
+                          }`}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium shrink-0">
