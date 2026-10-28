@@ -20,7 +20,7 @@ function getUserFromToken(request: NextRequest) {
  * GET /api/reports/check-duplicate
  *
  * Duplicate-detection query (no AI). Criteria:
- *  - location within 50 m of [lng, lat]
+ *  - location within 100 m of [lng, lat]
  *  - category matches (case-insensitive substring)
  *  - status in: submitted | under_review | in_progress
  *  - createdAt within last 60 days
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       location: {
         $near: {
           $geometry: { type: 'Point', coordinates: [lng, lat] },
-          $maxDistance: 50, // 50 metres
+          $maxDistance: 100, // 100 metres
         },
       },
       status: { $in: ['submitted', 'under_review', 'in_progress'] },

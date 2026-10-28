@@ -164,7 +164,7 @@ export default function DuplicateDetector({
     return (
       <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs font-medium text-amber-800 dark:text-amber-300 animate-pulse">
         <Loader2 className="w-4 h-4 animate-spin shrink-0 text-amber-600" />
-        <span>Scanning 50m radius for existing reports in this category…</span>
+        <span>Scanning 100m radius for existing reports in this category…</span>
       </div>
     );
   }
@@ -184,7 +184,7 @@ export default function DuplicateDetector({
               {duplicates.length} similar issue{duplicates.length > 1 ? 's' : ''} already reported nearby!
             </p>
             <p className="text-[11px] text-amber-700 dark:text-amber-400">
-              Within 50m · Category: <span className="font-semibold">{category}</span> · Currently Active
+              Within 100m · Category: <span className="font-semibold">{category}</span> · Currently Active
             </p>
           </div>
         </div>

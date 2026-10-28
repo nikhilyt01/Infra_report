@@ -483,7 +483,7 @@ export default function NewReportPage() {
             </CardContent>
           </Card>
 
-          {/* ── Duplicate Detector (Geo + Category + Status within 50m) ──── */}
+          {/* ── Duplicate Detector (Geo + Category + Status within 100m) ─── */}
           {hasGPS && formData.category.trim().length >= 2 && !upvotedExistingId && (
             <DuplicateDetector
               lng={formData.location.coordinates[0]}
