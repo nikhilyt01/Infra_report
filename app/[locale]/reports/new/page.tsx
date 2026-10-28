@@ -15,7 +15,7 @@ import DuplicateDetector from '@/components/DuplicateDetector';
 import {
   Camera, X, MapPin, ArrowLeft,
   FileText, CheckCircle, AlertCircle, Loader2,
-  ShieldCheck, Lock,
+  ShieldCheck, Lock, ChevronDown, Sparkles,
 } from 'lucide-react';
 
 interface CapturedPhoto {
@@ -26,6 +26,27 @@ interface CapturedPhoto {
   address: string;
   capturedAt: string;
 }
+
+const DEFAULT_CATEGORIES = [
+  { name: 'Potholes', icon: '🕳️' },
+  { name: 'Street Lights', icon: '💡' },
+  { name: 'Water Supply', icon: '💧' },
+  { name: 'Drainage', icon: '🚰' },
+  { name: 'Garbage Collection', icon: '🗑️' },
+  { name: 'Roads & Pavements', icon: '🛣️' },
+  { name: 'Parks & Gardens', icon: '🌳' },
+  { name: 'Traffic Signals', icon: '🚦' },
+  { name: 'Public Transport', icon: '🚌' },
+  { name: 'Public Buildings', icon: '🏢' },
+];
+
+const POPULAR_CATEGORIES = [
+  { name: 'Potholes', icon: '🕳️' },
+  { name: 'Street Lights', icon: '💡' },
+  { name: 'Water Supply', icon: '💧' },
+  { name: 'Drainage', icon: '🚰' },
+  { name: 'Garbage Collection', icon: '🗑️' },
+];
 
 export default function NewReportPage() {
   const router = useRouter();
@@ -45,6 +66,11 @@ export default function NewReportPage() {
   const [uniqueConfirmed, setUniqueConfirmed] = useState(false);
   const [upvotedExistingId, setUpvotedExistingId] = useState<string | null>(null);
 
+  // Category dropdown state
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [categoryList, setCategoryList] = useState<{ name: string; icon?: string }[]>(DEFAULT_CATEGORIES);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -56,11 +82,34 @@ export default function NewReportPage() {
     address: '',
     area: '',
     landmark: '',
-    priority: 'medium',
+    priority: 'low',
     location: {
       coordinates: [0, 0] as [number, number],
     },
   });
+
+  // Fetch active categories from backend
+  useEffect(() => {
+    fetch('/api/categories')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setCategoryList(data.data.map((c: any) => ({ name: c.name, icon: c.icon || '🏷️' })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Handle outside click to close category dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
+        setIsCategoryOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // ── Reverse geocode helper ──────────────────────────────────────
   const reverseGeocode = useCallback(async (lat: number, lng: number): Promise<string> => {
@@ -296,6 +345,10 @@ export default function NewReportPage() {
     }
   };
 
+  const filteredCategories = categoryList.filter((c) =>
+    c.name.toLowerCase().includes(formData.category.trim().toLowerCase())
+  );
+
   // ── Render ──────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -367,24 +420,119 @@ export default function NewReportPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Category */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="category" className="text-xs font-medium text-foreground">
-                    {t('categoryLabel')} <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="category"
-                    placeholder={t('categoryPlaceholder')}
-                    value={formData.category}
-                    onChange={(e) => {
-                      setFormData({ ...formData, category: e.target.value });
-                      setUniqueConfirmed(false);
-                      setHasDuplicates(false);
-                    }}
-                    maxLength={100}
-                    required
-                    className="h-10 text-sm"
-                  />
+                {/* Category with Predefined Dropdown + Custom Type */}
+                <div className="space-y-1.5 relative" ref={categoryDropdownRef}>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="category" className="text-xs font-medium text-foreground">
+                      {t('categoryLabel')} <span className="text-destructive">*</span>
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground">Select or type custom</span>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="category"
+                      list="category-suggestions"
+                      placeholder={t('categoryPlaceholder')}
+                      value={formData.category}
+                      onFocus={() => setIsCategoryOpen(true)}
+                      onChange={(e) => {
+                        setFormData({ ...formData, category: e.target.value });
+                        setUniqueConfirmed(false);
+                        setHasDuplicates(false);
+                      }}
+                      maxLength={100}
+                      required
+                      className="h-10 text-sm pr-9"
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsCategoryOpen((prev) => !prev)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-md transition-colors"
+                      tabIndex={-1}
+                      aria-label="Toggle category list"
+                    >
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isCategoryOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                  </div>
+
+                  {/* HTML5 datalist for native browser fallback */}
+                  <datalist id="category-suggestions">
+                    {categoryList.map((c) => (
+                      <option key={c.name} value={c.name} />
+                    ))}
+                  </datalist>
+
+                  {/* Custom interactive dropdown list */}
+                  {isCategoryOpen && (
+                    <div className="absolute z-30 left-0 right-0 mt-1 max-h-56 overflow-y-auto rounded-xl border border-border bg-popover shadow-xl p-1.5 space-y-0.5 animate-in fade-in-50 zoom-in-95">
+                      <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Select a category
+                      </div>
+                      {filteredCategories.map((c) => {
+                        const isSelected = formData.category.trim().toLowerCase() === c.name.toLowerCase();
+                        return (
+                          <button
+                            key={c.name}
+                            type="button"
+                            onClick={() => {
+                              setFormData((prev) => ({ ...prev, category: c.name }));
+                              setIsCategoryOpen(false);
+                              setUniqueConfirmed(false);
+                              setHasDuplicates(false);
+                            }}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-left font-medium transition-colors ${
+                              isSelected
+                                ? 'bg-primary/10 text-primary font-bold'
+                                : 'text-foreground hover:bg-secondary'
+                            }`}
+                          >
+                            <span className="text-base shrink-0">{c.icon || '🏷️'}</span>
+                            <span className="truncate">{c.name}</span>
+                            {isSelected && (
+                              <CheckCircle className="w-3.5 h-3.5 ml-auto text-primary shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                      {filteredCategories.length === 0 && (
+                        <div className="p-3 text-center text-xs text-muted-foreground">
+                          Custom category: &ldquo;<span className="font-semibold text-foreground">{formData.category}</span>&rdquo;
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Quick selection chips for top categories */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                    <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
+                      Popular:
+                    </span>
+                    {POPULAR_CATEGORIES.map((c) => {
+                      const isSelected = formData.category === c.name;
+                      return (
+                        <button
+                          key={c.name}
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({ ...prev, category: c.name }));
+                            setIsCategoryOpen(false);
+                            setUniqueConfirmed(false);
+                            setHasDuplicates(false);
+                          }}
+                          className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-all ${
+                            isSelected
+                              ? 'bg-primary text-primary-foreground border-primary font-semibold shadow-2xs'
+                              : 'bg-secondary/60 hover:bg-secondary text-foreground border-border/60 hover:border-primary/40'
+                          }`}
+                        >
+                          <span className="mr-1">{c.icon}</span>
+                          <span>{c.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Priority */}
