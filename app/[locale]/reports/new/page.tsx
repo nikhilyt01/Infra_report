@@ -223,15 +223,16 @@ export default function NewReportPage() {
 
       setCapturedPhotos((prev) => [...prev, photo]);
 
-      // Auto-fill location fields from first photo
-      if (capturedPhotos.length === 0) {
-        setFormData((prev) => ({
+      // Auto-fill location fields from first photo or if coordinates are 0
+      setFormData((prev) => {
+        const isFirst = prev.location.coordinates[0] === 0 && prev.location.coordinates[1] === 0;
+        return {
           ...prev,
           location: { coordinates: [lng, lat] },
-          address: prev.address || resolvedAddress,
-          area: prev.area || areaGuess,
-        }));
-      }
+          address: isFirst || !prev.address ? resolvedAddress : prev.address,
+          area: isFirst || !prev.area ? areaGuess : prev.area,
+        };
+      });
 
       stopCamera();
     } catch (err: any) {
