@@ -108,7 +108,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <div className="relative z-10 text-slate-600 text-xs">
-          © 2025 InfraReport · Empowering civic participation
+          © 2026 InfraReport · Empowering civic participation
         </div>
       </div>
 

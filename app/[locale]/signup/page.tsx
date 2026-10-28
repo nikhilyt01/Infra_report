@@ -160,11 +160,10 @@ export default function SignupPage() {
                       setCopiedCode(true);
                       setTimeout(() => setCopiedCode(false), 2000);
                     }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                      copiedCode
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${copiedCode
                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
                         : 'bg-amber-500/10 border-amber-500/30 text-amber-600 hover:bg-amber-500/20'
-                    }`}
+                      }`}
                   >
                     {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                     {copiedCode ? 'Copied!' : 'Copy'}
@@ -252,7 +251,7 @@ export default function SignupPage() {
         </div>
 
         <div className="relative z-10 text-slate-600 text-xs">
-          © 2025 InfraReport · Empowering civic participation
+          © 2026 InfraReport · Empowering civic participation
         </div>
       </div>
 
@@ -426,17 +425,15 @@ export default function SignupPage() {
                     {[1, 2, 3, 4, 5].map((i) => (
                       <div
                         key={i}
-                        className={`h-1 flex-1 rounded-full transition-all duration-300 ${
-                          i <= passwordStrength ? strengthColor : 'bg-border'
-                        }`}
+                        className={`h-1 flex-1 rounded-full transition-all duration-300 ${i <= passwordStrength ? strengthColor : 'bg-border'
+                          }`}
                       />
                     ))}
                   </div>
-                  <p className={`text-[11px] font-semibold ${
-                    passwordStrength <= 1 ? 'text-red-500' :
-                    passwordStrength <= 2 ? 'text-orange-500' :
-                    passwordStrength <= 3 ? 'text-yellow-600' : 'text-emerald-600'
-                  }`}>
+                  <p className={`text-[11px] font-semibold ${passwordStrength <= 1 ? 'text-red-500' :
+                      passwordStrength <= 2 ? 'text-orange-500' :
+                        passwordStrength <= 3 ? 'text-yellow-600' : 'text-emerald-600'
+                    }`}>
                     {strengthLabel}
                   </p>
                 </div>
@@ -457,13 +454,12 @@ export default function SignupPage() {
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   placeholder="Re-enter password"
                   className={`w-full h-11 px-4 pr-11 rounded-xl border bg-card text-foreground text-sm placeholder:text-muted-foreground
-                    focus:outline-none focus:ring-2 focus:border-primary transition-all ${
-                    formData.confirmPassword && formData.password !== formData.confirmPassword
+                    focus:outline-none focus:ring-2 focus:border-primary transition-all ${formData.confirmPassword && formData.password !== formData.confirmPassword
                       ? 'border-destructive focus:ring-destructive/30'
                       : formData.confirmPassword && formData.password === formData.confirmPassword
-                      ? 'border-emerald-500 focus:ring-emerald-500/30'
-                      : 'border-border focus:ring-primary/40'
-                  }`}
+                        ? 'border-emerald-500 focus:ring-emerald-500/30'
+                        : 'border-border focus:ring-primary/40'
+                    }`}
                 />
                 <button
                   type="button"
