@@ -11,10 +11,11 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { Label } from '@/components/ui/Label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
+import DuplicateDetector from '@/components/DuplicateDetector';
 import {
   Camera, X, MapPin, ArrowLeft,
   FileText, CheckCircle, AlertCircle, Loader2,
-  ShieldCheck, Lock, Satellite,
+  ShieldCheck, Lock,
 } from 'lucide-react';
 
 interface CapturedPhoto {
@@ -38,6 +39,11 @@ export default function NewReportPage() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [gpsLockLoading, setGpsLockLoading] = useState(false);
   const [error, setError] = useState('');
+  // Duplicate-detection state
+  const [hasDuplicates, setHasDuplicates] = useState(false);
+  const [duplicateCount, setDuplicateCount] = useState(0);
+  const [uniqueConfirmed, setUniqueConfirmed] = useState(false);
+  const [upvotedExistingId, setUpvotedExistingId] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -216,6 +222,8 @@ export default function NewReportPage() {
     };
   }, []);
 
+  const hasGPS = formData.location.coordinates[0] !== 0 && formData.location.coordinates[1] !== 0;
+
   // ── Submit ──────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,8 +234,14 @@ export default function NewReportPage() {
       return;
     }
 
-    if (formData.location.coordinates[0] === 0 && formData.location.coordinates[1] === 0) {
+    if (!hasGPS) {
       setError(t('errNoLocation'));
+      return;
+    }
+
+    // Only enforce duplicate resolution if duplicates were actually found nearby
+    if (hasGPS && hasDuplicates && !uniqueConfirmed && !upvotedExistingId) {
+      setError('Similar issues were reported nearby. Please upvote the existing report or confirm that yours is different before submitting.');
       return;
     }
 
@@ -266,8 +280,6 @@ export default function NewReportPage() {
       setLoading(false);
     }
   };
-
-  const hasGPS = formData.location.coordinates[0] !== 0;
 
   // ── Render ──────────────────────────────────────────────────────
   return (
@@ -349,7 +361,11 @@ export default function NewReportPage() {
                     id="category"
                     placeholder={t('categoryPlaceholder')}
                     value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, category: e.target.value });
+                      setUniqueConfirmed(false);
+                      setHasDuplicates(false);
+                    }}
                     maxLength={100}
                     required
                     className="h-10 text-sm"
@@ -466,6 +482,43 @@ export default function NewReportPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* ── Duplicate Detector (Geo + Category + Status within 50m) ──── */}
+          {hasGPS && formData.category.trim().length >= 2 && !upvotedExistingId && (
+            <DuplicateDetector
+              lng={formData.location.coordinates[0]}
+              lat={formData.location.coordinates[1]}
+              category={formData.category}
+              onDuplicatesFound={(found, count) => {
+                setHasDuplicates(found);
+                setDuplicateCount(count);
+                if (!found) {
+                  setUniqueConfirmed(true);
+                }
+              }}
+              onConfirmUnique={() => setUniqueConfirmed(true)}
+              onUpvotedExisting={(id) => {
+                setUpvotedExistingId(id);
+                setTimeout(() => router.push(`/${locale}/reports/${id}`), 1000);
+              }}
+            />
+          )}
+
+          {/* Confirmed unique feedback */}
+          {hasDuplicates && uniqueConfirmed && !upvotedExistingId && (
+            <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Confirmed as a distinct issue. Your report will be submitted independently.</span>
+            </div>
+          )}
+
+          {/* Upvoted existing feedback */}
+          {upvotedExistingId && (
+            <div className="flex items-center gap-2.5 p-4 rounded-xl bg-primary/10 border border-primary/20 text-xs font-bold text-primary">
+              <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+              <span>Upvote recorded! Skipping new report creation and redirecting to the existing issue…</span>
+            </div>
+          )}
 
           {/* ── Section 3: Live Camera Only ─────────────────────── */}
           <Card className="border border-border/80 shadow-xs">
