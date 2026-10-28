@@ -239,10 +239,25 @@ export default function NewReportPage() {
       return;
     }
 
-    // Only enforce duplicate resolution if duplicates were actually found nearby
-    if (hasGPS && hasDuplicates && !uniqueConfirmed && !upvotedExistingId) {
-      setError('Similar issues were reported nearby. Please upvote the existing report or confirm that yours is different before submitting.');
-      return;
+    // Pre-submission duplicate check:
+    // If not confirmed unique and no upvoted existing, query check-duplicate directly
+    if (!uniqueConfirmed && !upvotedExistingId) {
+      try {
+        const dupRes = await fetch(
+          `/api/reports/check-duplicate?lng=${formData.location.coordinates[0]}&lat=${formData.location.coordinates[1]}&category=${encodeURIComponent(formData.category)}`
+        );
+        const dupData = await dupRes.json();
+        if (dupData.success && dupData.data && dupData.data.length > 0) {
+          setHasDuplicates(true);
+          setDuplicateCount(dupData.data.length);
+          setError('Similar issues were reported nearby. Please check the duplicate suggestions above, upvote the existing issue or confirm yours is different.');
+          // Scroll to duplicate detector
+          window.scrollTo({ top: 350, behavior: 'smooth' });
+          return;
+        }
+      } catch (e) {
+        console.error('Pre-submit duplicate check failed:', e);
+      }
     }
 
     setLoading(true);
