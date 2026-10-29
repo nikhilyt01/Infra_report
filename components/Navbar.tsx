@@ -262,7 +262,10 @@ export default function Navbar() {
           {/* Right Action & Auth Area */}
           <div className="hidden lg:flex items-center gap-2 xl:gap-2.5 shrink-0">
             {/* Primary Action Button */}
-            <Link href={`/${locale}/reports/new`} className="shrink-0">
+            <Link 
+              href={user ? `/${locale}/reports/new` : `/${locale}/login?message=login_required&redirect=/${locale}/reports/new`} 
+              className="shrink-0"
+            >
               <Button size="sm" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 shadow-xs whitespace-nowrap shrink-0">
                 <Plus className="w-3.5 h-3.5" />
                 <span>Report Issue</span>
@@ -491,7 +494,7 @@ export default function Navbar() {
           {/* Mobile Menu Button */}
           <div className="flex lg:hidden items-center gap-2">
             {user && <NotificationDropdown />}
-            <Link href={`/${locale}/reports/new`}>
+            <Link href={user ? `/${locale}/reports/new` : `/${locale}/login?message=login_required&redirect=/${locale}/reports/new`}>
               <Button size="sm" className="flex items-center gap-1 text-xs px-2.5 py-1">
                 <Plus className="w-3.5 h-3.5" />
                 <span>Report</span>

@@ -12,6 +12,7 @@ import { Select } from '@/components/ui/Select';
 import { Label } from '@/components/ui/Label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import DuplicateDetector from '@/components/DuplicateDetector';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Camera, X, MapPin, ArrowLeft,
   FileText, CheckCircle, AlertCircle, Loader2,
@@ -53,6 +54,13 @@ export default function NewReportPage() {
   const params = useParams();
   const locale = (params.locale as string) || 'en';
   const t = useTranslations('ReportForm');
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push(`/${locale}/login?message=login_required&redirect=/${locale}/reports/new`);
+    }
+  }, [user, authLoading, locale, router]);
 
   const [loading, setLoading] = useState(false);
   const [capturedPhotos, setCapturedPhotos] = useState<CapturedPhoto[]>([]);
@@ -351,6 +359,18 @@ export default function NewReportPage() {
   );
 
   // ── Render ──────────────────────────────────────────────────────
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <Loader2 className="w-8 h-8 text-primary animate-spin mb-3" />
+          <p className="text-sm font-medium text-muted-foreground">Checking authentication…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />

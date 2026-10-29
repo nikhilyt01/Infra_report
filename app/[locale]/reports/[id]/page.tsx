@@ -266,7 +266,7 @@ export default function ReportDetailPage() {
 
       // Upvoting requires an account — send guests to sign in.
       if (res.status === 401) {
-        router.push(`/${locale}/login`);
+        router.push(`/${locale}/login?message=login_required&redirect=/${locale}/reports/${report._id}`);
         return;
       }
 

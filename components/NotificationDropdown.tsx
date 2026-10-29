@@ -14,7 +14,8 @@ import {
   Clock, 
   ExternalLink,
   Loader2,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -174,11 +175,20 @@ export default function NotificationDropdown() {
         )}
       </button>
 
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px] sm:hidden"
+          onClick={() => setIsOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl bg-card border border-border/80 shadow-2xl z-50 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+        <div className="fixed inset-x-2.5 top-[68px] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 rounded-2xl bg-card border border-border/80 shadow-2xl z-50 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150 flex flex-col max-h-[calc(100vh-85px)]">
           {/* Header */}
-          <div className="p-3.5 border-b border-border/60 flex items-center justify-between bg-secondary/30">
+          <div className="p-3.5 border-b border-border/60 flex items-center justify-between bg-secondary/30 shrink-0">
             <div className="flex items-center gap-2">
               <h3 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-1.5">
                 <span>Notifications</span>
@@ -190,20 +200,30 @@ export default function NotificationDropdown() {
               </h3>
             </div>
 
-            {unreadCount > 0 && (
+            <div className="flex items-center gap-2">
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleMarkAllAsRead}
+                  className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1 transition-colors"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  <span>Mark all as read</span>
+                </button>
+              )}
               <button
                 type="button"
-                onClick={handleMarkAllAsRead}
-                className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1 transition-colors"
+                onClick={() => setIsOpen(false)}
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors sm:hidden"
+                aria-label="Close notifications"
               >
-                <CheckCheck className="w-3.5 h-3.5" />
-                <span>Mark all as read</span>
+                <X className="w-4 h-4" />
               </button>
-            )}
+            </div>
           </div>
 
           {/* Notifications List */}
-          <div className="max-h-80 overflow-y-auto divide-y divide-border/40">
+          <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-border/40">
             {notifications.length === 0 ? (
               <div className="py-10 px-4 text-center space-y-2">
                 <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mx-auto text-muted-foreground">
@@ -272,7 +292,7 @@ export default function NotificationDropdown() {
           </div>
 
           {/* Footer */}
-          <div className="p-2.5 border-t border-border/60 bg-secondary/20 text-center">
+          <div className="p-2.5 border-t border-border/60 bg-secondary/20 text-center shrink-0">
             <Link
               href={`/${locale}/notifications`}
               onClick={() => setIsOpen(false)}

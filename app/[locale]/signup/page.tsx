@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { Suspense, useState } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   UserPlus, AlertCircle, CheckCircle, Eye, EyeOff,
-  Shield, Copy, Check, ArrowRight, Building2, HardHat, User
+  Shield, Copy, Check, ArrowRight, Building2, HardHat, User, Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -46,8 +46,12 @@ const ROLE_OPTIONS: { value: Role; icon: React.ElementType; label: string; desc:
   },
 ];
 
-export default function SignupPage() {
+function SignupFormContent() {
   const router = useRouter();
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const locale = (params?.locale as string) || 'en';
+  const redirectParam = searchParams.get('redirect');
   const { signup } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -111,10 +115,14 @@ export default function SignupPage() {
         setSuccess('Supervisor account created! Share your Supervisor ID with your Municipal Manager for approval.');
       } else if (formData.role === 'manager') {
         setSuccess('Account created! Please wait for admin approval before logging in.');
-        setTimeout(() => router.push('/en/login'), 3500);
+        setTimeout(() => router.push(`/${locale}/login`), 3500);
       } else {
         setSuccess('Account created successfully! Redirecting…');
-        setTimeout(() => router.push('/en'), 2000);
+        if (redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')) {
+          setTimeout(() => router.push(redirectParam), 1500);
+        } else {
+          setTimeout(() => router.push(`/${locale}`), 1500);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Signup failed. Please try again.');
@@ -176,7 +184,7 @@ export default function SignupPage() {
 
               <button
                 type="button"
-                onClick={() => router.push('/en/login')}
+                onClick={() => router.push(`/${locale}/login`)}
                 className="w-full h-11 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm
                   transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25"
               >
@@ -510,12 +518,29 @@ export default function SignupPage() {
           {/* Sign in link */}
           <p className="text-sm text-center text-muted-foreground pb-4">
             Already have an account?{' '}
-            <Link href="/en/login" className="text-primary font-semibold hover:underline underline-offset-4">
+            <Link 
+              href={`/${locale}/login${redirectParam ? `?redirect=${encodeURIComponent(redirectParam)}` : ''}`}
+              className="text-primary font-semibold hover:underline underline-offset-4"
+            >
               Sign in
             </Link>
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        </div>
+      }
+    >
+      <SignupFormContent />
+    </Suspense>
   );
 }

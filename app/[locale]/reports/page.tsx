@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -36,6 +37,7 @@ export default function ReportsPage() {
   const router = useRouter();
   const params = useParams();
   const locale = params.locale || 'en';
+  const { user } = useAuth();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -43,6 +45,14 @@ export default function ReportsPage() {
     category: '',
     search: '',
   });
+
+  const handleCreateReport = () => {
+    if (!user) {
+      router.push(`/${locale}/login?message=login_required&redirect=/${locale}/reports/new`);
+    } else {
+      router.push(`/${locale}/reports/new`);
+    }
+  };
   // Track which rejected cards have their reason expanded
   const [expandedReasons, setExpandedReasons] = useState<Record<string, boolean>>({});
 
@@ -124,7 +134,7 @@ export default function ReportsPage() {
             </p>
           </div>
           <Button
-            onClick={() => router.push(`/${locale}/reports/new`)}
+            onClick={handleCreateReport}
             className="flex items-center gap-2 px-4 py-2.5 shadow-xs font-medium"
           >
             <Plus className="w-4 h-4" />
@@ -205,7 +215,7 @@ export default function ReportsPage() {
           <Card className="border border-border/80 shadow-xs">
             <CardContent className="py-16 text-center space-y-3">
               <p className="text-sm text-muted-foreground">No reports match the selected filters.</p>
-              <Button onClick={() => router.push(`/${locale}/reports/new`)} size="sm">
+              <Button onClick={handleCreateReport} size="sm">
                 <Plus className="w-4 h-4 mr-1.5" />
                 Submit a Report
               </Button>

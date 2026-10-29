@@ -120,7 +120,7 @@ export default function MyReportsPage() {
 
   useEffect(() => {
     if (!user) {
-      router.push(`/${locale}/login`);
+      router.push(`/${locale}/login?message=login_required&redirect=/${locale}/my-reports`);
       return;
     }
     fetchData();
