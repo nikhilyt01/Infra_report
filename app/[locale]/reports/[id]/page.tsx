@@ -18,7 +18,7 @@ import {
   Droplets, Trash2, Milestone, Trees, Bus, Zap, Wrench,
   Camera, Calendar, User, UserCog, Mail, MapPin, Navigation, Globe,
   Satellite, ArrowLeft, ThumbsUp, Clock, Check, Loader2,
-  AlertCircle, ShieldAlert, TrendingUp, RotateCcw, History
+  AlertCircle, ShieldAlert, TrendingUp, RotateCcw, History, Download
 } from 'lucide-react';
 
 interface Report {
@@ -304,6 +304,187 @@ export default function ReportDetailPage() {
     }
   };
 
+  // ── Download Report as PDF ──────────────────────────────────────────────
+  const handleDownloadReport = () => {
+    if (!report) return;
+
+    const [lng, lat] = report.location?.coordinates || [0, 0];
+    const hasCoords = lat !== 0 && lng !== 0;
+
+    const statusColors: Record<string, string> = {
+      submitted: '#3b82f6',
+      under_review: '#f59e0b',
+      in_progress: '#6366f1',
+      resolved: '#10b981',
+      closed: '#64748b',
+      rejected: '#ef4444',
+    };
+    const priorityColors: Record<string, string> = {
+      low: '#64748b', medium: '#3b82f6', high: '#f59e0b', urgent: '#ef4444',
+    };
+
+    const statusColor = statusColors[report.status] || '#64748b';
+    const priorityColor = priorityColors[report.priority] || '#64748b';
+
+    const historyRows = history.map((h) => {
+      const date = new Date(h.timestamp || h.createdAt || '').toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      });
+      return `
+        <tr style="border-bottom:1px solid #e2e8f0;">
+          <td style="padding:8px 12px;font-size:12px;color:#64748b;">${date}</td>
+          <td style="padding:8px 12px;font-size:12px;font-weight:600;">${(h.fromStatus || '—').replace('_',' ')} → ${(h.toStatus || '—').replace('_',' ')}</td>
+          <td style="padding:8px 12px;font-size:12px;">${h.actorName || '—'} <span style="color:#94a3b8;font-size:11px;">(${h.actorRole || '—'})</span></td>
+          <td style="padding:8px 12px;font-size:12px;color:#475569;">${h.note || h.comment || '—'}</td>
+        </tr>`;
+    }).join('');
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>InfraReport — ${report.title}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #1e293b; padding: 40px; max-width: 900px; margin: 0 auto; }
+    @media print { body { padding: 20px; } .no-print { display: none; } }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    h2 { font-size: 14px; font-weight: 700; color: #334155; margin-bottom: 12px; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 3px solid #0f172a; }
+    .brand { font-size: 13px; color: #64748b; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+    .report-id { font-size: 12px; color: #94a3b8; font-family: monospace; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; color: #fff; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; }
+    .label { font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .value { font-size: 14px; font-weight: 600; color: #1e293b; }
+    .section { margin-bottom: 24px; }
+    .desc { font-size: 13px; color: #475569; line-height: 1.7; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead tr { background: #f1f5f9; }
+    th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+    .images { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
+    .images img { width: 100%; height: 140px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; }
+    .print-btn { display: block; margin: 0 auto 24px; padding: 10px 28px; background: #0f172a; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <button class="print-btn no-print" onclick="window.print()">🖨️ Print / Save as PDF</button>
+
+  <div class="header">
+    <div>
+      <div class="brand">🏗️ InfraReport — Official Report</div>
+      <h1>${report.title}</h1>
+      <div class="report-id">Ticket ID: ${report._id}</div>
+    </div>
+    <div style="text-align:right;">
+      <div class="label">Generated</div>
+      <div style="font-size:13px;color:#475569;">${new Date().toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}</div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="label">Status</div>
+      <div><span class="badge" style="background:${statusColor}">${report.status.replace('_', ' ').toUpperCase()}</span></div>
+    </div>
+    <div class="card">
+      <div class="label">Priority</div>
+      <div><span class="badge" style="background:${priorityColor}">${report.priority.toUpperCase()}</span></div>
+    </div>
+    <div class="card">
+      <div class="label">Category</div>
+      <div class="value">${report.category}</div>
+    </div>
+    <div class="card">
+      <div class="label">Community Upvotes</div>
+      <div class="value">${report.upvotes || 0} votes</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Description</h2>
+    <div class="desc">${report.description}</div>
+  </div>
+
+  <div class="grid2">
+    <div class="section">
+      <h2>Location Details</h2>
+      <div class="card">
+        <div class="label">Address</div>
+        <div class="value" style="margin-bottom:8px;">${report.address}</div>
+        ${report.area ? `<div class="label">Area</div><div class="value" style="margin-bottom:8px;">${report.area}</div>` : ''}
+        ${report.landmark ? `<div class="label">Landmark</div><div class="value" style="margin-bottom:8px;">${report.landmark}</div>` : ''}
+        ${hasCoords ? `<div class="label">Coordinates</div><div style="font-size:12px;font-family:monospace;color:#475569;">${lat.toFixed(6)}, ${lng.toFixed(6)}</div>` : ''}
+        ${hasCoords ? `<div style="margin-top:8px;"><a href="https://maps.google.com/?q=${lat},${lng}" style="font-size:12px;color:#3b82f6;">📍 View on Google Maps</a></div>` : ''}
+      </div>
+    </div>
+    <div class="section">
+      <h2>Report Metadata</h2>
+      <div class="card">
+        <div class="label">Reported By</div>
+        <div class="value" style="margin-bottom:8px;">${report.reportedBy?.name || 'Citizen'}</div>
+        <div class="label">Filed On</div>
+        <div class="value" style="margin-bottom:8px;">${new Date(report.createdAt).toLocaleDateString('en-IN', { day:'2-digit', month:'long', year:'numeric' })}</div>
+        <div class="label">Last Updated</div>
+        <div class="value" style="margin-bottom:8px;">${new Date(report.updatedAt).toLocaleDateString('en-IN', { day:'2-digit', month:'long', year:'numeric' })}</div>
+        ${report.estimatedResolutionDate ? `<div class="label">Est. Resolution</div><div class="value">${new Date(report.estimatedResolutionDate).toLocaleDateString('en-IN', { day:'2-digit', month:'long', year:'numeric' })}</div>` : ''}
+      </div>
+    </div>
+  </div>
+
+  ${(report.approvedBy || report.assignedBy || report.assignedTo || report.initiatedBy) ? `
+  <div class="section">
+    <h2>Municipal Response Team</h2>
+    <div class="grid2">
+      ${(report.assignedBy || report.approvedBy) ? `<div class="card"><div class="label">Assigned Manager</div><div class="value">${report.assignedBy?.name || report.approvedBy?.name}</div></div>` : ''}
+      ${report.assignedTo ? `<div class="card"><div class="label">Field Supervisor</div><div class="value">${(report.assignedTo as any).name}</div></div>` : ''}
+      ${report.approvedBy ? `<div class="card"><div class="label">Officer Approved By</div><div class="value">${(report.approvedBy as any).name}</div></div>` : ''}
+      ${report.initiatedBy ? `<div class="card"><div class="label">Repair Initiated By</div><div class="value">${(report.initiatedBy as any).name}</div></div>` : ''}
+    </div>
+  </div>` : ''}
+
+  ${report.resolutionNote ? `
+  <div class="section">
+    <h2>Resolution Note</h2>
+    <div class="desc">${report.resolutionNote}</div>
+  </div>` : ''}
+
+  ${report.images && report.images.length > 0 ? `
+  <div class="section">
+    <h2>Evidence Photos (${report.images.length})</h2>
+    <div class="images">
+      ${report.images.map((img: string) => `<img src="${img}" alt="Evidence" />`).join('')}
+    </div>
+  </div>` : ''}
+
+  ${history.length > 0 ? `
+  <div class="section">
+    <h2>Audit Trail (${history.length} entries)</h2>
+    <table>
+      <thead><tr><th>Date & Time</th><th>Status Change</th><th>Actor</th><th>Note</th></tr></thead>
+      <tbody>${historyRows}</tbody>
+    </table>
+  </div>` : ''}
+
+  <div class="footer">
+    <span>InfraReport — AI-Powered Infrastructure Crowdsourcing Platform</span>
+    <span>Report ID: ${report._id} | Generated ${new Date().toLocaleDateString('en-IN')}</span>
+  </div>
+</body>
+</html>`);
+
+    printWindow.document.close();
+    printWindow.focus();
+  };
+  // ────────────────────────────────────────────────────────────────────────
+
   const getStatusBadge = (status: string) => {
     const map: Record<string, string> = {
       submitted: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
@@ -439,6 +620,17 @@ export default function ReportDetailPage() {
             >
               <ThumbsUp className={`w-3.5 h-3.5 ${upvoted ? 'fill-primary text-primary' : ''}`} />
               <span>{report.upvotes || 0} Upvotes</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadReport}
+              title="Download report as PDF"
+              className="flex items-center gap-1.5 text-xs font-medium text-primary border-primary/30 hover:bg-primary/5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Download</span>
             </Button>
 
             <Button
