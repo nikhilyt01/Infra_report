@@ -16,10 +16,10 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import 'leaflet/dist/leaflet.css';
-import { 
-  Map as MapIcon, Layers, BarChart3, RotateCcw, 
-  Info, Satellite, Building, Moon, Sun, Trees, 
-  Compass, Construction, Lightbulb, Droplet, 
+import {
+  Map as MapIcon, Layers, BarChart3, RotateCcw,
+  Info, Satellite, Building, Moon, Sun, Trees,
+  Compass, Construction, Lightbulb, Droplet,
   Droplets, Trash2, Milestone, Wrench, Plus, Minus,
   Maximize2, Minimize2, Navigation, ChevronDown, ChevronUp,
   X, SlidersHorizontal
@@ -239,7 +239,7 @@ type MapStyleKey = 'satellite' | 'street' | 'dark' | 'light' | 'outdoors' | 'nav
 
 export default function HeatMapView({ initialViewState }: HeatMapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  
+
   // Google Maps refs
   const googleMapRef = useRef<google.maps.Map | null>(null);
   const googleHeatmapRef = useRef<any>(null);
@@ -268,8 +268,8 @@ export default function HeatMapView({ initialViewState }: HeatMapViewProps) {
   const [legendOpen, setLegendOpen] = useState(true);
 
   const defaultCenter = {
-    lat: initialViewState?.latitude || 12.9716,
-    lng: initialViewState?.longitude || 77.5946,
+    lat: initialViewState?.latitude || 22.13130,
+    lng: initialViewState?.longitude || 77.12504,
   };
   const defaultZoom = initialViewState?.zoom || 12;
 
@@ -867,10 +867,10 @@ export default function HeatMapView({ initialViewState }: HeatMapViewProps) {
   return (
     <div className="w-full h-screen bg-slate-950 relative overflow-hidden select-none">
       {/* Map Canvas Container - always mounted in DOM */}
-      <div 
-        ref={mapContainerRef} 
+      <div
+        ref={mapContainerRef}
         style={{ width: '100%', height: '100%', minHeight: '100%', position: 'absolute', inset: 0, zIndex: 0 }}
-        className="bg-slate-950" 
+        className="bg-slate-950"
       />
 
       {/* Loading Overlay */}
@@ -949,7 +949,7 @@ export default function HeatMapView({ initialViewState }: HeatMapViewProps) {
             </button>
 
             <div className="flex items-start gap-3 pr-6 mb-3">
-              <div 
+              <div
                 className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border border-white/20 shadow-xs"
                 style={{ backgroundColor: getMarkerColor(selectedReport.status) }}
               >
@@ -968,7 +968,7 @@ export default function HeatMapView({ initialViewState }: HeatMapViewProps) {
             <div className="space-y-2 text-xs text-slate-300">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-slate-400">Status:</span>
-                <span 
+                <span
                   className="px-2 py-0.5 rounded text-[10px] font-semibold text-white uppercase tracking-wider"
                   style={{ backgroundColor: getMarkerColor(selectedReport.status) }}
                 >
@@ -978,7 +978,7 @@ export default function HeatMapView({ initialViewState }: HeatMapViewProps) {
 
               <div className="flex items-center justify-between gap-2">
                 <span className="text-slate-400">Priority:</span>
-                <span 
+                <span
                   className="px-2 py-0.5 rounded text-[10px] font-semibold text-white uppercase tracking-wider"
                   style={{ backgroundColor: getPriorityColor(selectedReport.priority) }}
                 >
@@ -1033,9 +1033,8 @@ export default function HeatMapView({ initialViewState }: HeatMapViewProps) {
       </div>
 
       {/* Left Control Panel */}
-      <div className={`absolute left-3 z-20 pointer-events-none transition-all duration-300 w-64 sm:w-72 max-w-[calc(100vw-1.5rem)] bottom-3 ${
-        isControlsOpen ? 'top-14 block' : 'top-3 hidden md:block'
-      }`}>
+      <div className={`absolute left-3 z-20 pointer-events-none transition-all duration-300 w-64 sm:w-72 max-w-[calc(100vw-1.5rem)] bottom-3 ${isControlsOpen ? 'top-14 block' : 'top-3 hidden md:block'
+        }`}>
         <div className="h-full max-h-full overflow-y-auto overflow-x-hidden pointer-events-auto pr-1.5 space-y-2">
           {/* Mobile Panel Header with Close Button */}
           {isControlsOpen && (
@@ -1083,18 +1082,17 @@ export default function HeatMapView({ initialViewState }: HeatMapViewProps) {
                   <button
                     key={style}
                     onClick={() => setMapStyle(style)}
-                    className={`px-1.5 py-1.5 rounded-md text-[11px] font-medium transition-all flex flex-col items-center gap-1 justify-center ${
-                      mapStyle === style
-                        ? 'bg-blue-600 text-white shadow-xs font-semibold'
-                        : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                    }`}
+                    className={`px-1.5 py-1.5 rounded-md text-[11px] font-medium transition-all flex flex-col items-center gap-1 justify-center ${mapStyle === style
+                      ? 'bg-blue-600 text-white shadow-xs font-semibold'
+                      : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                      }`}
                   >
-                    {style === 'satellite' && <Satellite className="w-3 h-3" />} 
-                    {style === 'street' && <Building className="w-3 h-3" />} 
-                    {style === 'dark' && <Moon className="w-3 h-3" />} 
-                    {style === 'light' && <Sun className="w-3 h-3" />} 
-                    {style === 'outdoors' && <Trees className="w-3 h-3" />} 
-                    {style === 'navigation' && <Compass className="w-3 h-3" />} 
+                    {style === 'satellite' && <Satellite className="w-3 h-3" />}
+                    {style === 'street' && <Building className="w-3 h-3" />}
+                    {style === 'dark' && <Moon className="w-3 h-3" />}
+                    {style === 'light' && <Sun className="w-3 h-3" />}
+                    {style === 'outdoors' && <Trees className="w-3 h-3" />}
+                    {style === 'navigation' && <Compass className="w-3 h-3" />}
                     <span className="capitalize text-[10px] leading-none">{style}</span>
                   </button>
                 ))}
@@ -1194,8 +1192,8 @@ export default function HeatMapView({ initialViewState }: HeatMapViewProps) {
                   { status: 'resolved', label: 'Resolved', color: '#22c55e' },
                 ].map((item) => (
                   <div key={item.status} className="flex items-center gap-1.5">
-                    <div 
-                      className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs" 
+                    <div
+                      className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
                       style={{ backgroundColor: item.color }}
                     />
                     <span className="text-slate-300 text-[11px] truncate font-medium">{item.label}</span>
