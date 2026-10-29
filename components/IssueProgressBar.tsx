@@ -25,7 +25,7 @@ const getStatusProgress = (status: string) => {
 
 export default function IssueProgressBar({ status, showLabels = true, size = 'md' }: IssueProgressBarProps) {
   const progress = getStatusProgress(status);
-  
+
   const sizeClasses = {
     sm: { bar: 'h-1.5', icon: 'w-4 h-4', text: 'text-xs', dot: 'w-6 h-6' },
     md: { bar: 'h-2', icon: 'w-5 h-5', text: 'text-sm', dot: 'w-8 h-8' },
@@ -130,7 +130,7 @@ export default function IssueProgressBar({ status, showLabels = true, size = 'md
           const isCompleted = index <= progress.step;
           const isCurrent = index === progress.step;
           const Icon = step.icon;
-          
+
           const colorClasses = {
             blue: 'bg-blue-500 text-white border-blue-500',
             yellow: 'bg-yellow-500 text-white border-yellow-500',
@@ -146,7 +146,7 @@ export default function IssueProgressBar({ status, showLabels = true, size = 'md
                 transition={{ delay: index * 0.1, duration: 0.3 }}
                 className={`
                   ${currentSize.dot} rounded-full flex items-center justify-center border-2
-                  ${isCompleted 
+                  ${isCompleted
                     ? colorClasses[step.color as keyof typeof colorClasses]
                     : 'bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-400'
                   }
@@ -162,7 +162,7 @@ export default function IssueProgressBar({ status, showLabels = true, size = 'md
               </motion.div>
               <span className={`
                 ${currentSize.text} font-medium text-center max-w-[80px]
-                ${isCompleted ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}
+                ${isCompleted ? 'text-foreground' : 'text-muted-foreground'}
                 ${isCurrent ? 'font-bold' : ''}
               `}>
                 {step.label}
@@ -174,7 +174,7 @@ export default function IssueProgressBar({ status, showLabels = true, size = 'md
 
       {/* Progress Percentage */}
       <div className="text-center">
-        <span className={`${currentSize.text} font-bold text-gray-900 dark:text-white`}>
+        <span className={`${currentSize.text} font-bold text-foreground`}>
           {Math.round(progress.percent)}% Done
         </span>
       </div>
