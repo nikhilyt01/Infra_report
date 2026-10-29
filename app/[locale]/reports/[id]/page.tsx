@@ -44,6 +44,13 @@ interface Report {
     email: string;
     avatar?: string;
   };
+  assignedBy?: {
+    _id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+  };
+  assignedAt?: string;
   approvedBy?: {
     _id: string;
     name: string;
@@ -258,8 +265,10 @@ export default function ReportDetailPage() {
     }
   };
 
+  const isTerminalStatus = report ? ['resolved', 'closed', 'rejected'].includes(report.status) : false;
+
   const handleUpvote = async () => {
-    if (!report || upvoteLoading) return;
+    if (!report || upvoteLoading || isTerminalStatus) return;
     setUpvoteLoading(true);
     try {
       const res = await fetch(`/api/reports/${report._id}/upvote`, { method: 'POST' });
@@ -414,11 +423,19 @@ export default function ReportDetailPage() {
           <div className="flex items-center gap-2.5">
             <Button
               onClick={handleUpvote}
-              disabled={upvoteLoading}
+              disabled={upvoteLoading || isTerminalStatus}
               variant="outline"
               size="sm"
-              className={`flex items-center gap-1.5 text-xs font-semibold ${upvoted ? 'bg-primary/10 text-primary border-primary/30' : ''
-                }`}
+              title={
+                isTerminalStatus
+                  ? `Report is already ${report.status}`
+                  : upvoted
+                  ? 'Remove upvote'
+                  : 'Upvote this issue'
+              }
+              className={`flex items-center gap-1.5 text-xs font-semibold ${
+                isTerminalStatus ? 'opacity-60 cursor-not-allowed' : ''
+              } ${upvoted ? 'bg-primary/10 text-primary border-primary/30' : ''}`}
             >
               <ThumbsUp className={`w-3.5 h-3.5 ${upvoted ? 'fill-primary text-primary' : ''}`} />
               <span>{report.upvotes || 0} Upvotes</span>
@@ -847,7 +864,7 @@ export default function ReportDetailPage() {
             )}
 
             {/* Municipal Operations Team Card */}
-            {(report.approvedBy || report.assignedTo || report.initiatedBy) && (
+            {(report.approvedBy || report.assignedBy || report.assignedTo || report.initiatedBy) && (
               <Card className="border border-border/80 shadow-xs bg-card">
                 <CardHeader className="p-5 pb-3 border-b border-border/60">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
@@ -856,6 +873,27 @@ export default function ReportDetailPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-5 space-y-3 text-xs">
+                  {/* Assigned / Overseeing Manager */}
+                  {(report.assignedBy || report.approvedBy) && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Assigned Manager:</span>
+                      <span className="font-semibold text-foreground">
+                        {report.assignedBy?.name || report.approvedBy?.name}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Field Supervisor */}
+                  {report.assignedTo && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Field Supervisor:</span>
+                      <span className="font-semibold text-primary">
+                        {report.assignedTo.name}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Officer Approval */}
                   {report.approvedBy && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Officer Approved:</span>
@@ -866,20 +904,12 @@ export default function ReportDetailPage() {
                     </div>
                   )}
 
+                  {/* Repair Initiated By */}
                   {report.initiatedBy && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Repair Initiated By:</span>
                       <span className="font-semibold text-indigo-600 dark:text-indigo-400">
                         {report.initiatedBy.name}
-                      </span>
-                    </div>
-                  )}
-
-                  {report.assignedTo && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Assigned Manager:</span>
-                      <span className="font-semibold text-foreground">
-                        {report.assignedTo.name}
                       </span>
                     </div>
                   )}

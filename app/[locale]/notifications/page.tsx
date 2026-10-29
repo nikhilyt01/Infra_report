@@ -20,12 +20,14 @@ import {
   Trash2,
   UserCheck,
   Filter,
-  ArrowRight
+  ArrowRight,
+  ClipboardList,
+  AlertTriangle
 } from 'lucide-react';
 
 interface NotificationItem {
   _id: string;
-  type: 'report_resolved' | 'supervisor_signup' | 'urgent_escalation' | 'general';
+  type: 'report_resolved' | 'supervisor_signup' | 'supervisor_approved' | 'report_assigned' | 'urgent_escalation' | 'general';
   title: string;
   message: string;
   link?: string;
@@ -274,17 +276,25 @@ export default function NotificationsPage() {
                     {/* Category / Type Icon */}
                     <div
                       className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
-                        notif.type === 'report_resolved'
+                        notif.type === 'report_resolved' || notif.type === 'supervisor_approved'
                           ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
                           : notif.type === 'supervisor_signup'
                           ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                          : notif.type === 'report_assigned'
+                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                          : notif.type === 'urgent_escalation'
+                          ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
                           : 'bg-primary/10 text-primary border border-primary/20'
                       }`}
                     >
-                      {notif.type === 'report_resolved' ? (
+                      {notif.type === 'report_resolved' || notif.type === 'supervisor_approved' ? (
                         <CheckCircle2 className="w-5 h-5" />
                       ) : notif.type === 'supervisor_signup' ? (
                         <UserCheck className="w-5 h-5" />
+                      ) : notif.type === 'report_assigned' ? (
+                        <ClipboardList className="w-5 h-5" />
+                      ) : notif.type === 'urgent_escalation' ? (
+                        <AlertTriangle className="w-5 h-5" />
                       ) : (
                         <Sparkles className="w-5 h-5" />
                       )}

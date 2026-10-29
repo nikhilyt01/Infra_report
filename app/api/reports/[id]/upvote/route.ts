@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Report from '@/models/Report';
 import ReportHistory from '@/models/ReportHistory';
+import { notifyUrgentEscalation } from '@/lib/notifications';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -49,12 +50,24 @@ export async function POST(
     const { id } = await params;
     const userId = String(user.userId);
 
-    // Read the pre-update priority so we can tell whether this vote escalated it.
-    const before = await Report.findById(id).select('priority');
+    // Read the pre-update priority and status so we can enforce business rules.
+    const before = await Report.findById(id).select('priority status title assignedTo');
     if (!before) {
       return NextResponse.json(
         { success: false, error: 'Report not found' },
         { status: 404 }
+      );
+    }
+
+    // Task 1: Stop upvote after resolved, closed, or rejected.
+    // An issue that is already resolved should not have its priority modified or audit trail expanded.
+    if (['resolved', 'closed', 'rejected'].includes(before.status)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Cannot upvote a report that has already been ${before.status}. Upvoting is only permitted for active reports.`,
+        },
+        { status: 400 }
       );
     }
 
@@ -143,6 +156,17 @@ export async function POST(
         toStatus: updated.priority,
         timestamp: new Date(),
       });
+
+      // If the report is assigned to a supervisor, notify them of urgent community escalation
+      if (updated.assignedTo && ['high', 'urgent'].includes(updated.priority)) {
+        await notifyUrgentEscalation({
+          reportId: updated._id,
+          reportTitle: updated.title,
+          supervisorId: updated.assignedTo,
+          newPriority: updated.priority,
+          upvoteCount: updated.upvotes,
+        });
+      }
     }
 
     // Return the authoritative values so the client never has to guess, and

@@ -33,7 +33,11 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20', 10)));
     const skip = (page - 1) * limit;
 
-    const query: any = { recipient: userObjectId };
+    const recipientCondition = {
+      $or: [{ recipient: userObjectId }, { recipient: String(rawUserId) }]
+    };
+
+    const query: any = { ...recipientCondition };
     if (unreadOnly) {
       query.isRead = false;
     }
@@ -45,7 +49,7 @@ export async function GET(request: NextRequest) {
         .limit(limit)
         .lean(),
       Notification.countDocuments(query),
-      Notification.countDocuments({ recipient: userObjectId, isRead: false }),
+      Notification.countDocuments({ ...recipientCondition, isRead: false }),
     ]);
 
     return NextResponse.json({
@@ -90,11 +94,14 @@ export async function PATCH(request: NextRequest) {
     }
 
     const userObjectId = new mongoose.Types.ObjectId(String(rawUserId));
+    const recipientCondition = {
+      $or: [{ recipient: userObjectId }, { recipient: String(rawUserId) }]
+    };
     const body = await request.json().catch(() => ({}));
 
     if (body.markAllAsRead) {
       await Notification.updateMany(
-        { recipient: userObjectId, isRead: false },
+        { ...recipientCondition, isRead: false },
         { $set: { isRead: true, readAt: new Date() } }
       );
     } else if (Array.isArray(body.notificationIds) && body.notificationIds.length > 0) {
@@ -103,7 +110,7 @@ export async function PATCH(request: NextRequest) {
         .map((id: string) => new mongoose.Types.ObjectId(id));
 
       await Notification.updateMany(
-        { recipient: userObjectId, _id: { $in: validIds } },
+        { ...recipientCondition, _id: { $in: validIds } },
         { $set: { isRead: true, readAt: new Date() } }
       );
     } else {
@@ -114,7 +121,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const unreadCount = await Notification.countDocuments({
-      recipient: userObjectId,
+      ...recipientCondition,
       isRead: false,
     });
 

@@ -4,6 +4,8 @@ import User from './User';
 export type NotificationType = 
   | 'report_resolved' 
   | 'supervisor_signup' 
+  | 'supervisor_approved'
+  | 'report_assigned'
   | 'urgent_escalation' 
   | 'general';
 
@@ -33,7 +35,14 @@ const NotificationSchema = new Schema<INotification>(
     },
     type: {
       type: String,
-      enum: ['report_resolved', 'supervisor_signup', 'urgent_escalation', 'general'],
+      enum: [
+        'report_resolved',
+        'supervisor_signup',
+        'supervisor_approved',
+        'report_assigned',
+        'urgent_escalation',
+        'general',
+      ],
       default: 'general',
       required: true,
       index: true,

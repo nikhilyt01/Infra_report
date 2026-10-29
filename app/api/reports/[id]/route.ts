@@ -4,7 +4,11 @@ import Report from '@/models/Report';
 import User from '@/models/User';
 import ReportHistory, { ActionType } from '@/models/ReportHistory';
 import { validateStatusTransition } from '@/lib/reportLifecycle';
-import { notifyReportResolved } from '@/lib/notifications';
+import { 
+  notifyReportResolved, 
+  notifyReportAssigned, 
+  notifyReportUnassigned 
+} from '@/lib/notifications';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -55,6 +59,22 @@ export async function GET(
       ? (reportObj.upvotedBy || []).includes(String(viewer.userId))
       : false;
     delete reportObj.upvotedBy;
+
+    // Fallback: If assignedBy and approvedBy are null on legacy report documents,
+    // look up the managing officer who assigned or approved it from the audit history.
+    if (!reportObj.assignedBy && !reportObj.approvedBy) {
+      const lastManagerAction = await ReportHistory.findOne({
+        reportId: id,
+        actorRole: { $in: ['manager', 'admin'] },
+      }).sort({ createdAt: -1 });
+
+      if (lastManagerAction && lastManagerAction.actorName) {
+        reportObj.assignedBy = {
+          _id: lastManagerAction.actorId,
+          name: lastManagerAction.actorName,
+        };
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -266,6 +286,28 @@ export async function PATCH(
       updates.assignedTo = body.assignedTo || null;
       updates.assignedBy = actorId;
       updates.assignedAt = new Date();
+
+      // Send real-time notification to the newly assigned supervisor
+      if (body.assignedTo) {
+        await notifyReportAssigned({
+          reportId: report._id,
+          reportTitle: report.title,
+          category: report.category,
+          area: report.area || report.address,
+          supervisorId: body.assignedTo,
+          managerName: actorName,
+        });
+      }
+
+      // If the report was reassigned away from a previous supervisor, notify them
+      if (report.assignedTo && String(report.assignedTo) !== String(body.assignedTo)) {
+        await notifyReportUnassigned({
+          reportId: report._id,
+          reportTitle: report.title,
+          supervisorId: report.assignedTo,
+          managerName: actorName,
+        });
+      }
     }
 
     // 3. Priority changes

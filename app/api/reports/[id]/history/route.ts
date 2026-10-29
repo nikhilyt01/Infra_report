@@ -16,6 +16,7 @@ export async function GET(
     const report = await Report.findById(id)
       .populate({ path: 'reportedBy', select: 'name email avatar', strictPopulate: false })
       .populate({ path: 'assignedTo', select: 'name email avatar', strictPopulate: false })
+      .populate({ path: 'assignedBy', select: 'name email avatar', strictPopulate: false })
       .populate({ path: 'approvedBy', select: 'name email avatar', strictPopulate: false })
       .populate({ path: 'initiatedBy', select: 'name email avatar', strictPopulate: false });
 
@@ -199,6 +200,19 @@ export async function GET(
         isSynthetic: true,
       };
       finalHistory = [syntheticCreation as any, ...history];
+    }
+
+    // Task 1: If the report has been resolved, the audit trail should conclude with the resolution.
+    // Any extraneous post-resolution priority escalations are filtered out so the audit trail doesn't expand.
+    const resolvedIndex = finalHistory.findIndex(
+      (h: any) => h.actionType === 'resolved' || h.toStatus === 'resolved'
+    );
+    if (resolvedIndex !== -1) {
+      finalHistory = finalHistory.filter((h: any, idx: number) => {
+        if (idx <= resolvedIndex) return true;
+        // Keep genuine reopens or administrative status changes, but exclude priority_changed noise
+        return h.actionType !== 'priority_changed';
+      });
     }
 
     return NextResponse.json({
